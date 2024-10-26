@@ -1,0 +1,20 @@
+---
+title: "Trabajo Práctico 2 | Grupo 2" 
+date: "r Sys.Date()" # Inserta la fecha automáticamente 
+format: html
+theme: Cosmo 
+toc: true 
+toc-location: right 
+number-sections: true 
+code-fold: true # Permitir plegado de bloques de código 
+code-tools: true # Mostrar herramientas de copiado en los bloques de código 
+smooth-scroll: true # Habilitar desplazamiento suave al navegar por el índice 
+fig-align: center # Alinear las figuras al centro 
+toc-depth: 3 # Profundidad máxima del índice 
+lang: es # Establecer idioma del documento 
+editor: visual # Editor visual habilitado
+---
+
+# Trabajo Práctico 2
+
+Análisis Exploratorio de Datos de un Dataset Real
