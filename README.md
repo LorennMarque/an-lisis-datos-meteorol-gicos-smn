@@ -1,6 +1,6 @@
 # Análisis de datos Meteorológicos.
 
-Grupo 2: Franco Pitter, Federico Hanashiro, Lorenzo Marquesini
+Grupo 2: Franco Pitter, Federico Hanashiro, Lorenzo Marquesini.
 
 Objetivo: Aplicar técnicas de importación, limpieza, manipulación y visualización de datos.
 
@@ -31,3 +31,4 @@ Bonus:
 - Realizar un análisis de series temporales.
 - Ajustar modelos de pronóstico (se recomienda usar Prophet) y evaluar su rendimiento.
 - Realizar pronósticos para los próximos 12 meses.
+- Prueba
