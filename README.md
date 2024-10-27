@@ -1,6 +1,6 @@
 # Análisis de datos Meteorológicos.
 
-Grupo 2: Franco Pitter, Federico Hanashiro, Lorenzo Marquesini
+Grupo 2: Franco Pitter, Federico Hanashiro, Lorenzo Marquesini.
 
 Objetivo: Aplicar técnicas de importación, limpieza, manipulación y visualización de datos.
 
