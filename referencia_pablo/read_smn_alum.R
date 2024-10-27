@@ -1,16 +1,16 @@
 #
 
-rm(list = ls()) 
-options(scipen=999)
+# rm(list = ls()) 
+# options(scipen=999)
 
-# Obtener directorio del script actual y modificar el working directory
-library("rstudioapi")
-setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+# # Obtener directorio del script actual y modificar el working directory
+# library("rstudioapi")
+# setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 library(dplyr)
 library(progress)
 
-directorio_datos = "data/"
+directorio_datos = "data/smn-data"
 # Nombres de columnas
 nombres_columnas = c("FECHA", "HORA", "TEMP", "HUM", "PNM", "DD", "FF", "NOMBRE")
 # Anchos de las columnas
@@ -63,15 +63,15 @@ df <- do.call(bind_rows, lapply(archivos, leer_archivo))
 # write.csv(df, "C://clean_msn//datos_smn.csv", row.names = FALSE)
 
 # Guardar el dataframe en formato RDS con compresión
-saveRDS(df, file = "C://clean_msn//datos_smn.rds")
+saveRDS(df, file = "datos_smn.rds")
 
 # Leer el archivo RDS
-#df_rds <- readRDS("C://clean_msn//datos_smn.rds")
+df_rds <- readRDS("datos_smn.rds")
 #head(df_rds)
 
 
 # Verificar rangos, valores extremos, NA's, etc
-summary(df)
+# summary(df)
 #  [HOA]  [ºC]   [%]  [hPa]  [gr] [km/hr]
 
 # Wikipedia: La presión atmosférica no es estable y oscila entre los 885 hPa entre los ciclones 
