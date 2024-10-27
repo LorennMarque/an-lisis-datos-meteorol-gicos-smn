@@ -18,3 +18,18 @@ editor: visual # Editor visual habilitado
 # Trabajo Práctico 2
 
 Análisis Exploratorio de Datos de un Dataset Real
+
+```{r}
+library(dplyr)
+datos <- readRDS("data/datos_smn.rds")
+estaciones <- read.csv("data/estaciones.csv")
+precipitaciones <- read.delim("data/smn_precipitaciones-1991-2024.txt", sep = ",")
+
+join_1 <- estaciones %>% 
+  inner_join(datos, by = c("Nombre" = "NOMBRE"))
+precipitaciones$Fecha <-  as.Date(precipitaciones$Fecha, format = "%Y-%m-%d")
+dataset <- join_1 %>%
+  inner_join(precipitaciones, by = c("Nro" = "Estacion", "FECHA" = "Fecha"))
+
+dataset$Precipitacion..mm. <- as.numeric(dataset$Precipitacion..mm.) 
+```
