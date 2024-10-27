@@ -31,4 +31,4 @@ Bonus:
 - Realizar un análisis de series temporales.
 - Ajustar modelos de pronóstico (se recomienda usar Prophet) y evaluar su rendimiento.
 - Realizar pronósticos para los próximos 12 meses.
-- Pruebaaaaaaaaaaa
+- Prueba
