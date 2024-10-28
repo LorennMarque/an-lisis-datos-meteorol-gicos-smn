@@ -46,3 +46,13 @@ print(na_count)
 library(VIM)
 aggr(dataset, col = c('navyblue','red'), numbers = TRUE, sortVars = TRUE, labels = names(data), cex.axis = .7, gap = 3, ylab = c("Histograma de NAs","Patrón de NAs"))
 ```
+
+#Con este código, se pueden visualizar columnas con muchos NAs. Por ejemplo la variable PNM, la cual muestra la presión atmosférica, contiene 88110 NAs y valores atípicos e imposibles en la superficie terrestre como una presión atmosférica de 3000 hPa o 100 hPa
+
+```{r}
+
+dataset_filtrado = dataset %>%
+  filter()
+
+```
+
