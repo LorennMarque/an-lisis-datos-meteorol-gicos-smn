@@ -1,174 +1,58 @@
 ---
 title: "Trabajo Práctico 2 | Grupo 2" 
-date: "r Sys.Date()" 
+date: "r Sys.Date()" # Inserta la fecha automáticamente 
 format: html
 theme: Cosmo 
 toc: true 
 toc-location: right 
 number-sections: true 
-code-fold: true
-code-tools: true
-smooth-scroll: true
-fig-align: center 
-toc-depth: 3
-lang: es
-editor: visual
+code-fold: true # Permitir plegado de bloques de código 
+code-tools: true # Mostrar herramientas de copiado en los bloques de código 
+smooth-scroll: true # Habilitar desplazamiento suave al navegar por el índice 
+fig-align: center # Alinear las figuras al centro 
+toc-depth: 3 # Profundidad máxima del índice 
+lang: es # Establecer idioma del documento 
+editor: visual # Editor visual habilitado
 ---
-
-```{r echo = FALSE, warning = FALSE, output = FALSE}
-# Limpieza de datos.
-library(dplyr)
-library(DataExplorer) # Para usar func plot_intro
-library(tidyverse)
-
-# Visualización de datos.
-library(VIM)
-
-# Carga de datos
-datos_smn <- readRDS("data/datos_smn.rds")
-
-datos_estaciones <- read.csv("data/estaciones.csv")
-
-datos_precipitaciones <- read.delim("data/smn_precipitaciones-1991-2024.txt", sep = ",")
-```
 
 # Trabajo Práctico 2
 
 Análisis Exploratorio de Datos de un Dataset Real
 
-## Carga y estructura de datos
-
 ```{r}
-datos_precipitaciones$Fecha <-  as.Date(datos_precipitaciones$Fecha, format = "%Y-%m-%d")
+library(dplyr)
+datos <- readRDS("data/datos_smn.rds")
+estaciones <- read.csv("data/estaciones.csv")
+precipitaciones <- read.delim("data/smn_precipitaciones-1991-2024.txt", sep = ",")
 
-df <- datos_estaciones %>% 
-  inner_join(datos_smn, by = c("Nombre" = "NOMBRE")) %>%
-  inner_join(datos_precipitaciones, by = c("Nro" = "Estacion", "FECHA" = "Fecha"))
+join_1 <- estaciones %>% 
+  inner_join(datos, by = c("Nombre" = "NOMBRE"))
+precipitaciones$Fecha <-  as.Date(precipitaciones$Fecha, format = "%Y-%m-%d")
+dataset <- join_1 %>%
+  inner_join(precipitaciones, by = c("Nro" = "Estacion", "FECHA" = "Fecha"))
+
+dataset$Precipitacion..mm. <- as.numeric(dataset$Precipitacion..mm.) 
 ```
 
-Formato de columnas
-
-```{r}
-colnames(df)
-```
-
-Renombrar Columnas
-
-```{r}
-df <- df %>%
-  rename( nombre_estacion = Nombre,
-                provincia = Provincia,
-                   altura = Altura,
-              id_estacion = Nro,
-                  latitud = Latitud,
-                 longitud = Longitud,
-                    fecha = FECHA,
-                     hora = HORA,
-              temperatura = TEMP,
-                  humedad = HUM,
-      presion_atmosferica = PNM,
-         direccion_viento = DD,
-         velocidad_viento = FF,
-            precipitacion = Precipitacion..mm.
-          )
-```
-
-Reorganizar Columnas
-
-```{r}
-df <- df %>%
-  dplyr::select(
-    id_estacion, nombre_estacion, provincia, altura, temperatura, humedad, presion_atmosferica, direccion_viento, velocidad_viento, precipitacion, latitud, longitud, hora, fecha
-  )
-```
-
-Formato de datos
-
-```{r, output=FALSE, warning=FALSE}
-str(df)
-```
-
-![Estructura de datos, antes de formatear](images/data_structure.png)
-
-```{r}
-# Convertir columnas a factor
-df$id_estacion <- as.factor(df$id_estacion)
-df$nombre_estacion <- as.factor(df$nombre_estacion)
-df$provincia <- as.factor(df$provincia)
-
-# Reemplazar los valores "\\N" por NA
-df$precipitacion[df$precipitacion == "\\N"] <- NA
-
-# Convertir la columna a numérico
-df$precipitacion <- as.numeric(df$precipitacion)
-```
-
-![Estructura de datos limpia](images/data_structure_formated.png)
-
-| Variable            | Concepto                      | Tipo   |
-|---------------------|-------------------------------|--------|
-| id_estacion         | Identificador de estación     | Factor |
-| nombre_estacion     | Nombre de estación            | Factor |
-| provincia           | Provincia                     | Factor |
-| altura              | Altura sobre el nivel del mar | int    |
-| temperatura         | Temperatura en UNIDAD ❓      | num    |
-| humedad             | ❓                            | num    |
-| presion_atmosferica | ❓                            | num    |
-| direccion_viento    | ❓                            | num    |
-| velocidad_viento    | ❓                            | num    |
-| precipitacion       | ❓ UNIDAD                     | num    |
-| latitud             | Latitud                       | num    |
-| longitud            | Longitud                      | num    |
-| hora                | Hora                          | num    |
-| fecha               | Fecha                         | Date   |
-
-: Diccionario de variables
-
-## Identificación de errores
+#Ver datos faltantes por columnas
 
 ```{r}
 # Verificar valores nulos
-df %>%
-  summarise(across(everything(), ~ sum(is.na(.)))) %>%
-  pivot_longer(everything(), names_to = "variable", values_to = "missing") %>%
-  arrange(desc(missing))
+na_count <- sapply(dataset, function(x) sum(is.na(x)))
+print(na_count)
+
+# Visualizar un mapa de calor de valores faltantes (requiere la librería VIM)
+# install.packages("VIM")
+library(VIM)
+aggr(dataset, col = c('navyblue','red'), numbers = TRUE, sortVars = TRUE, labels = names(data), cex.axis = .7, gap = 3, ylab = c("Histograma de NAs","Patrón de NAs"))
 ```
+
+#Con este código, se pueden visualizar columnas con muchos NAs. Por ejemplo la variable PNM, la cual muestra la presión atmosférica, contiene 88110 NAs y valores atípicos e imposibles en la superficie terrestre como una presión atmosférica de 3000 hPa o 100 hPa
 
 ```{r}
-# Visualizar valores faltantes
-plot_intro(df)
+
+dataset_filtrado = dataset %>%
+  filter()
+
 ```
 
-Almacenar variables categóricas y numéricas por separado.
-
-```{r}
-# Seleccionar columnas numéricas
-df_numericas <- df %>% 
-  select(where(is.numeric))
-
-# Seleccionar columnas categóricas (caracteres o factores)
-df_categoricas <- df %>% 
-  select(where(~ is.factor(.) | is.character(.)))
-```
-
-```{r}
-introduce(df)
-```
-
-```{r}
-plot_missing(df)
-```
-
-```{r}
-plot_bar(df)
-```
-
-```{r}
-plot_histogram(df)
-```
-
-```{r}
-plot_correlation(na.omit(df), maxcat = 5L)
-```
-
-## Limpieza de datos
