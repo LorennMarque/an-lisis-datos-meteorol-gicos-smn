@@ -23,7 +23,14 @@ library(tidyverse)
 library(inspectdf)
 
 # Visualización de datos.
-library(VIM)
+library(plotly)
+library(leaflet)
+
+
+# Análisis geoespacial
+library(geojsonsf)
+library(sf)
+
 
 # Carga de datos
 datos_smn <- readRDS("data/datos_smn.rds")
@@ -31,6 +38,10 @@ datos_smn <- readRDS("data/datos_smn.rds")
 datos_estaciones <- read.csv("data/estaciones.csv")
 
 datos_precipitaciones <- read.delim("data/smn_precipitaciones-1991-2024.txt", sep = ",")
+
+# APIs y tokens
+mapbox_token <- "pk.eyJ1IjoibG9yZW5uem8iLCJhIjoiY20xcHYyd3g2MDk0bTJxb2k4YWZvOHlmcSJ9.r4E2pcTSM89NNHBFSmvKHw"
+
 ```
 
 # Trabajo Práctico 2
@@ -173,3 +184,77 @@ plot_correlation(na.omit(df), maxcat = 5L)
 ```
 
 ## Limpieza de datos
+
+## Visualización Georreferenciado
+
+```{r}
+df_coords <- df %>%
+  group_by(latitud,longitud) %>%
+  summarise(n = n())
+```
+
+```{r}
+# Crear el gráfico
+fig <- plot_ly(data = df_coords, 
+               type = 'scattermapbox',
+               lat = ~latitud, 
+               lon = ~longitud,
+               mode = 'markers',
+               marker = list(size = 8, color = 'blue', opacity = 0.7))
+
+# Establecer las opciones de diseño y el estilo del mapa
+fig <- fig %>%
+  layout(
+    mapbox = list(
+      style = 'open-street-map',  # Alternativas: "carto-positron", "stamen-terrain", "dark"
+      zoom = 4,                   # Nivel de zoom
+      center = list(lat = mean(df$latitud), lon = mean(df$longitud))  # Centrar en promedio de tus datos
+    )
+  )
+
+# (Opcional) Establecer el token de Mapbox si tienes uno
+if (!is.null(mapbox_token)) {
+  fig <- fig %>%
+    layout(mapbox = list(accesstoken = mapbox_token))
+}
+
+# Mostrar el gráfico
+fig
+```
+
+```{r}
+# Cargar los puntos del dataframe "df" que tiene latitud y longitud
+# Cargar las provincias desde el archivo GeoJSON
+provincias.comp <- geojson_sf("rasters/provincias.json")%>%
+  st_make_valid()  # Arreglar geometrías invalidas
+
+provincias <- provincias.comp[,c("nam", "geometry")]
+
+# Convertir df a objeto sf (datos espaciales) con sistema de coordenadas WGS84
+df_sf <- df_coords %>%
+  filter(!is.na(latitud) & !is.na(longitud)) %>%  
+  st_as_sf(coords = c("longitud", "latitud"), crs = 4326)
+
+estaciones_por_provincia <- st_join(df_sf, provincias)
+
+estaciones_agrupadas <- estaciones_por_provincia %>%
+  group_by(nam) %>%
+  summarise(total = n())
+
+
+# Unir el conteo con los datos geojson de las provincias
+provincias <- provincias %>%
+  st_join(estaciones_agrupadas)
+
+provincias$total[is.na(provincias$total_entregas)] <- 0
+
+# Crear el mapa con ggplot2
+ggplot(data = provincias) +
+  geom_sf(aes(fill = total)) +  # Colorear según la cantidad de entregas
+  scale_fill_viridis_c(option = "plasma", na.value = "white") +  # Paleta de colores
+  theme_minimal() +
+  labs(
+    title = "Cantidad de Entregas por Barrio en Buenos Aires",
+    fill = "Entregas"
+  )
+```
