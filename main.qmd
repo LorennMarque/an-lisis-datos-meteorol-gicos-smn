@@ -154,16 +154,6 @@ plot_intro(df)
 Almacenar variables categóricas y numéricas por separado.
 
 ```{r}
-# Seleccionar columnas numéricas
-df_numericas <- df %>% 
-  select(where(is.numeric))
-
-# Seleccionar columnas categóricas (caracteres o factores)
-df_categoricas <- df %>% 
-  select(where(~ is.factor(.) | is.character(.)))
-```
-
-```{r}
 introduce(df)
 ```
 
@@ -185,27 +175,21 @@ plot_correlation(na.omit(df), maxcat = 5L)
 
 ## Limpieza de datos
 
-```{r}
-# Cargar las librerías necesarias
-library(dplyr)
+id_estacion, nombre_estacion, provincia, altura, temperatura, humedad, presion_atmosferica, direccion_viento, velocidad_viento, precipitacion, latitud, longitud, hora, fecha
 
+```{r}
 # Suponiendo que tu dataset se llama 'datos'
 # Filtramos eliminando NA y restringiendo los valores al rango deseado
-datos_filtrados <- datos %>%
+df <- df %>%
   na.omit() %>%  # Eliminar filas con NA
   filter(
-    PNM >= 950 & PNM <= 1050,
-    HUM >= 0 & HUM <= 100,
-    FF >= 0 & FF <= 150,
-    DD >= 0 & DD <= 360,
-    TEMP >= -10 & TEMP <= 45
+    presion_atmosferica >= 950 & presion_atmosferica <= 1050,
+    humedad >= 0 & humedad <= 100,
+    velocidad_viento >= 0 & velocidad_viento <= 150,
+    direccion_viento >= 0 & direccion_viento <= 360,
+    temperatura >= -35 & temperatura <= 50
   )
-
-# Ver los primeros resultados para verificar
-head(datos_filtrados)
-
 ```
-
 
 ## Visualización Georreferenciado
 
