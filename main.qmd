@@ -51,8 +51,21 @@ aggr(dataset, col = c('navyblue','red'), numbers = TRUE, sortVars = TRUE, labels
 
 ```{r}
 
-dataset_filtrado = dataset %>%
-  filter()
+# Suponiendo que tu dataset se llama 'datos'
+# Filtramos eliminando NA y restringiendo los valores al rango deseado
+df_filter <- dataset %>%
+  na.omit() %>%  # Eliminar filas con NA
+  filter(
+    PNM >= 950 & PNM <= 1050,
+    HUM >= 0 & HUM <= 100,
+    FF >= 0 & FF <= 150,
+    DD >= 0 & DD <= 360,
+    TEMP >= -35 & TEMP <= 50
+  )
+
+# Ver los primeros resultados para verificar
+head(df_filter)
+
 
 ```
 
