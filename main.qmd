@@ -191,6 +191,21 @@ df <- df %>%
   )
 ```
 
+# IDEAS ❓❓❓❓❓❓
+
+1.  Rango de fechas (primera y ultima) de datos cargados. LORENN
+2.  ¿Cuál es la humedad promedio en cada provincia? (anual) aplica a todas las variables. FRANCO
+3.  ¿Qué estación registró la temperatura más alta? FEDE
+4.  ¿Qué estación registró la temperatura más baja? LORENN
+5.  ¿En qué provincia se registró la mayor precipitación? (todas las variables) FRANCO
+6.  Estaciones con mayor y menor altitud. FEDE
+7.  ¿Existe correlaciónes? LORENN
+8.  variación estacional FRANCO
+9.  Fecha de apertura estaciones. FEDE
+10. condiciones climáticas más extremas LORENN
+11. ¿Se observan patrones asociados a eventos como El Niño o La Niña? FRANCO
+12. Segmentar por condiciones climaticas similares. FEDE
+
 ## Visualización Georreferenciado
 
 ```{r}
