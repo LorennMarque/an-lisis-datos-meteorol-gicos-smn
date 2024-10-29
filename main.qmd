@@ -185,6 +185,28 @@ plot_correlation(na.omit(df), maxcat = 5L)
 
 ## Limpieza de datos
 
+```{r}
+# Cargar las librerías necesarias
+library(dplyr)
+
+# Suponiendo que tu dataset se llama 'datos'
+# Filtramos eliminando NA y restringiendo los valores al rango deseado
+datos_filtrados <- datos %>%
+  na.omit() %>%  # Eliminar filas con NA
+  filter(
+    PNM >= 950 & PNM <= 1050,
+    HUM >= 0 & HUM <= 100,
+    FF >= 0 & FF <= 150,
+    DD >= 0 & DD <= 360,
+    TEMP >= -10 & TEMP <= 45
+  )
+
+# Ver los primeros resultados para verificar
+head(datos_filtrados)
+
+```
+
+
 ## Visualización Georreferenciado
 
 ```{r}
