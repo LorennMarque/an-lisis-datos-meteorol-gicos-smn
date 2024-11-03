@@ -1,0 +1,313 @@
+---
+title: "Trabajo Práctico 2 | Grupo 2" 
+date: "r Sys.Date()" 
+format: html
+theme: Cosmo 
+toc: true 
+toc-location: right 
+number-sections: true 
+code-fold: true
+code-tools: true
+smooth-scroll: true
+fig-align: center 
+toc-depth: 3
+lang: es
+editor: visual
+---
+
+```{r echo = FALSE, warning = FALSE, output = FALSE}
+# Limpieza de datos.
+library(dplyr)
+library(DataExplorer) # Para usar func plot_intro
+library(tidyverse)
+library(inspectdf)
+
+# Visualización de datos.
+library(plotly)
+library(leaflet)
+
+
+# Análisis geoespacial
+library(geojsonsf)
+library(sf)
+
+
+# Carga de datos
+datos_smn <- readRDS("data/datos_smn.rds")
+
+datos_estaciones <- read.csv("data/estaciones.csv")
+
+datos_precipitaciones <- read.delim("data/smn_precipitaciones-1991-2024.txt", sep = ",")
+
+# APIs y tokens
+mapbox_token <- "pk.eyJ1IjoibG9yZW5uem8iLCJhIjoiY20xcHYyd3g2MDk0bTJxb2k4YWZvOHlmcSJ9.r4E2pcTSM89NNHBFSmvKHw"
+
+```
+
+# Trabajo Práctico 2
+
+Análisis Exploratorio de Datos de un Dataset Real
+
+## Carga y estructura de datos
+
+```{r}
+datos_precipitaciones$Fecha <-  as.Date(datos_precipitaciones$Fecha, format = "%Y-%m-%d")
+
+df <- datos_estaciones %>% 
+  inner_join(datos_smn, by = c("Nombre" = "NOMBRE")) %>%
+  inner_join(datos_precipitaciones, by = c("Nro" = "Estacion", "FECHA" = "Fecha"))
+```
+
+Formato de columnas
+
+```{r}
+colnames(df)
+```
+
+Renombrar Columnas
+
+```{r}
+df <- df %>%
+  rename( nombre_estacion = Nombre,
+                provincia = Provincia,
+                   altura = Altura,
+              id_estacion = Nro,
+                  latitud = Latitud,
+                 longitud = Longitud,
+                    fecha = FECHA,
+                     hora = HORA,
+              temperatura = TEMP,
+                  humedad = HUM,
+      presion_atmosferica = PNM,
+         direccion_viento = DD,
+         velocidad_viento = FF,
+            precipitacion = Precipitacion..mm.
+          )
+```
+
+Reorganizar Columnas
+
+```{r}
+df <- df %>%
+  dplyr::select(
+    id_estacion, nombre_estacion, provincia, altura, temperatura, humedad, presion_atmosferica, direccion_viento, velocidad_viento, precipitacion, latitud, longitud, hora, fecha
+  )
+```
+
+Formato de datos
+
+```{r, output=FALSE, warning=FALSE}
+str(df)
+```
+
+![Estructura de datos, antes de formatear](images/data_structure.png)
+
+```{r}
+# Convertir columnas a factor
+df$id_estacion <- as.factor(df$id_estacion)
+df$nombre_estacion <- as.factor(df$nombre_estacion)
+df$provincia <- as.factor(df$provincia)
+
+# Reemplazar los valores "\\N" por NA
+df$precipitacion[df$precipitacion == "\\N"] <- NA
+
+# Convertir la columna a numérico
+df$precipitacion <- as.numeric(df$precipitacion)
+```
+
+![Estructura de datos limpia](images/data_structure_formated.png)
+
+| Variable            | Concepto                      | Tipo   |
+|---------------------|-------------------------------|--------|
+| id_estacion         | Identificador de estación     | Factor |
+| nombre_estacion     | Nombre de estación            | Factor |
+| provincia           | Provincia                     | Factor |
+| altura              | Altura sobre el nivel del mar | int    |
+| temperatura         | Temperatura en UNIDAD ❓      | num    |
+| humedad             | ❓                            | num    |
+| presion_atmosferica | ❓                            | num    |
+| direccion_viento    | ❓                            | num    |
+| velocidad_viento    | ❓                            | num    |
+| precipitacion       | ❓ UNIDAD                     | num    |
+| latitud             | Latitud                       | num    |
+| longitud            | Longitud                      | num    |
+| hora                | Hora                          | num    |
+| fecha               | Fecha                         | Date   |
+
+: Diccionario de variables
+
+## Identificación de errores
+
+```{r}
+# Verificar valores nulos
+df %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "missing") %>%
+  arrange(desc(missing))
+```
+
+```{r}
+# Visualizar valores faltantes
+plot_intro(df)
+```
+
+Almacenar variables categóricas y numéricas por separado.
+
+```{r}
+introduce(df)
+```
+
+```{r}
+plot_missing(df)
+```
+
+```{r}
+plot_bar(df)
+```
+
+```{r}
+plot_histogram(df)
+```
+
+```{r}
+plot_correlation(na.omit(df), maxcat = 5L)
+```
+
+## Limpieza de datos
+
+id_estacion, nombre_estacion, provincia, altura, temperatura, humedad, presion_atmosferica, direccion_viento, velocidad_viento, precipitacion, latitud, longitud, hora, fecha
+
+```{r}
+# Suponiendo que tu dataset se llama 'datos'
+# Filtramos eliminando NA y restringiendo los valores al rango deseado
+df <- df %>%
+  na.omit() %>%  # Eliminar filas con NA
+  filter(
+    presion_atmosferica >= 950 & presion_atmosferica <= 1050,
+    humedad >= 0 & humedad <= 100,
+    velocidad_viento >= 0 & velocidad_viento <= 150,
+    direccion_viento >= 0 & direccion_viento <= 360,
+    temperatura >= -35 & temperatura <= 50
+  )
+```
+
+# IDEAS ❓❓❓❓❓❓
+
+1.  Rango de fechas (primera y ultima) de datos cargados. LORENN
+2.  ¿Cuál es la humedad promedio en cada provincia? (anual) aplica a todas las variables. FRANCO
+3.  ¿Qué estación registró la temperatura más alta? FEDE
+4.  ¿Qué estación registró la temperatura más baja? LORENN
+5.  ¿En qué provincia se registró la mayor precipitación? (todas las variables) FRANCO
+6.  Estaciones con mayor y menor altitud. FEDE
+7.  ¿Existe correlaciónes? LORENN
+8.  variación estacional FRANCO
+9.  Fecha de apertura estaciones. FEDE
+10. condiciones climáticas más extremas LORENN
+11. ¿Se observan patrones asociados a eventos como El Niño o La Niña? FRANCO
+12. Segmentar por condiciones climaticas similares. FEDE
+
+```{r}
+df_prov <- df %>%
+  mutate(año = year(fecha)) %>%
+  group_by(provincia, año) %>%
+  summarise(humedad_promedio_anual = mean(humedad),
+            precipitaciones_promedio_anual = mean(precipitacion),
+            temp_promedio_anual = mean(temperatura)
+                                          
+  )
+
+
+#ggplot(df_prov_hum , aes(x = año, y = humedad_promedio_anual, color = provincia, #group = provincia)) +
+ # geom_line() +
+  #labs(title = "Humedad Promedio Anual por Provincia",
+   #    x = "Año",
+    #   y = "Humedad Promedio (%)") +
+  #theme_minimal()
+ggplot(df_prov, aes(x = año, y = humedad_promedio_anual)) +
+  geom_line(color = "blue") +
+  facet_wrap(~ provincia, ncol = 4) +
+  labs(title = "Humedad Promedio Anual por Provincia",
+       x = "Año",
+       y = "Humedad Promedio (%)") +
+  theme_minimal()
+
+
+
+```
+
+```{r}
+ggplot(df_prov, aes(x = año, y = temp_promedio_anual)) +
+  geom_line(color = "blue") +
+  facet_wrap(~ provincia, ncol = 4) +
+  labs(title = "Temperatura Promedio Anual por Provincia",
+       x = "Año",
+       y = "Temperatura Promedio") +
+  theme_minimal()
+
+```
+
+```{r}
+ggplot(df_prov, aes(x = año, y = precipitaciones_promedio_anual)) +
+  geom_line(color = "blue") +
+  facet_wrap(~ provincia, ncol = 4) +
+  labs(title = "Precipitaciones Promedio Anual por Provincia",
+       x = "Año",
+       y = "Precipitaciones Promedio") +
+  theme_minimal()
+```
+
+```{r}
+
+df_estacional <- df %>%
+  mutate(mes = month(fecha),
+         estacion_año = case_when(
+           mes %in% c(12, 1, 2) ~ "Verano",
+           mes %in% c(3, 4, 5) ~ "Otoño",
+           mes %in% c(6, 7, 8) ~ "Invierno",
+           mes %in% c(9, 10, 11) ~ "Primavera"
+         ))%>%
+  group_by(provincia,
+           estacion_año) %>%
+  summarize(
+    temperatura_promedio = mean(temperatura, na.rm = TRUE),
+    humedad_promedio = mean(humedad, na.rm = TRUE),
+    precipitaciones_promedio = mean(precipitacion, na.rm = TRUE)
+  )
+
+```
+
+```{r}
+ggplot(df_estacional, aes(x = provincia, y = temperatura_promedio, fill = estacion_año)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Temperatura Promedio Estacional por Provincia",
+       x = "Provincia",
+       y = "Temperatura Promedio (°C)") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1", name = "Estación del Año")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+```{r}
+ggplot(df_estacional, aes(x = provincia, y = humedad_promedio, fill = estacion_año)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Humedad Promedio Estacional por Provincia",
+       x = "Provincia",
+       y = "Humedad Promedio") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1", name = "Estación del Año")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+ggplot(df_estacional, aes(x = provincia, y = precipitaciones_promedio, fill = estacion_año)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Precipitaciones Promedio Estacional por Provincia",
+       x = "Provincia",
+       y = "Precipitaciones Promedio") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1", name = "Estación del Año")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
