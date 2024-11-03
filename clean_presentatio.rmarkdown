@@ -1,0 +1,677 @@
+---
+title: "Grupo 2"
+format: html
+editor: visual
+date: "`r Sys.Date()`"
+---
+
+```{r echo = FALSE, warning = FALSE, output = FALSE, message=FALSE}
+# Limpieza de datos.
+library(dplyr)
+library(DataExplorer) # Para usar func plot_intro
+library(tidyverse)
+library(inspectdf)
+
+# Visualización de datos.
+library(plotly)
+library(leaflet)
+
+# Análisis geoespacial
+library(geojsonsf)
+library(sf)
+
+# Carga de datos
+datos_smn <- readRDS("data/datos_smn.rds")
+
+datos_estaciones <- read.csv("data/estaciones.csv")
+
+datos_precipitaciones <- read.delim("data/smn_precipitaciones-1991-2024.txt", sep = ",")
+
+# APIs y tokens
+mapbox_token <- "pk.eyJ1IjoibG9yZW5uem8iLCJhIjoiY20xcHYyd3g2MDk0bTJxb2k4YWZvOHlmcSJ9.r4E2pcTSM89NNHBFSmvKHw"
+```
+
+```{r}
+# Pasar el nombre de las columnas a minúsculas.
+colnames(datos_smn) <- 
+  tolower(colnames(datos_smn))
+
+colnames(datos_estaciones) <- 
+  tolower(colnames(datos_estaciones))
+
+colnames(datos_precipitaciones) <- 
+  tolower(colnames(datos_precipitaciones))
+```
+
+
+
+# Introducción
+
+## Archivos proporcionados
+
+-   **Datos Horarios Diarios**: Archivos de texto con registros climáticos desde 2017 hasta 2023.
+
+
+
+```{r}
+head(datos_smn)
+```
+
+
+
+-   **Estaciones Meteorológicas**: Información detallada en *smn_estaciones.csv*.
+
+
+
+```{r}
+head(datos_estaciones)
+```
+
+
+
+-   **Precipitaciones**: Datos adicionales en *smn_precipitaciones.txt*.
+
+
+
+```{r}
+head(datos_precipitaciones)
+```
+
+
+
+## Limpieza y preparación de datos
+
+Todos los cambios realizados y variables.
+
+### SMN Data
+
+
+
+```{r}
+# Contar filas y columnas
+cat("Número de filas:", nrow(datos_smn), "\n")
+cat("Número de columnas:", ncol(datos_smn), "\n")
+```
+
+
+
+::: panel-tabset
+## Glimpse
+
+
+
+```{r}
+glimpse(datos_smn)
+```
+
+
+
+## Summary
+
+
+
+```{r}
+summary(datos_smn)
+```
+
+
+
+## Plot Intro
+
+
+
+```{r}
+plot_intro(datos_smn)
+```
+
+
+
+## Plot Missing
+
+
+
+```{r}
+plot_missing(datos_smn)
+```
+
+
+
+## Inspect Cat
+
+
+
+```{r}
+inspect_cat(datos_smn)
+```
+
+
+
+## Inspect Num
+
+
+
+```{r}
+inspect_num(datos_smn)
+```
+
+
+:::
+
+Gracias a la introducción a los datasets vemos que:
+
+-   SMN tiene datos faltantes en temp, dd, ff, hum, pnm
+
+
+
+```{r}
+datos_smn %>%
+  filter(is.na(temp) | is.na(dd) | is.na(ff) | is.na(hum) | is.na(pnm)) %>% head()
+```
+
+```{r}
+datos_smn <- datos_smn %>%
+  filter(!is.na(temp) & !is.na(dd) & !is.na(ff) & !is.na(hum) & !is.na(pnm))
+```
+
+
+
+Despues de eliminar estos valores faltantes nos quedamos con: `r .QuartoInlineRender(dim(datos_smn))`
+
+Y ahora tenemos que asegurarnos de que los valores que toma tengan sentido.
+
+
+
+```{r}
+datos_smn <- datos_smn %>%
+  filter(
+    pnm >= 950 & pnm <= 1050,
+    hum >= 0 & hum <= 100,
+    ff >= 0 & ff <= 150,
+    dd >= 0 & dd <= 360,
+    temp >= -35 & temp <= 50
+  )
+```
+
+
+
+Nuestros resultados:
+
+
+
+```{r}
+dim(datos_smn)
+```
+
+```{r}
+plot_intro(datos_smn)
+```
+
+
+
+Conversión de datos.
+
+
+
+```{r}
+glimpse(datos_smn)
+```
+
+```{r}
+str(datos_smn)
+```
+
+```{r}
+datos_smn <- datos_smn %>%
+  mutate(
+    fecha = as.Date(fecha),
+    hora = sprintf("%02d:00", hora) %>% as.POSIXct(format = "%H:%M", tz = "UTC"),
+    temp = as.numeric(temp),
+    hum = as.numeric(hum),
+    pnm = as.numeric(pnm),
+    dd = as.numeric(dd),
+    ff = as.numeric(ff),
+  )
+
+# Verificar las transformaciones
+str(datos_smn)
+```
+
+
+
+### Datos Estaciones
+
+
+
+```{r}
+# Contar filas y columnas
+cat("Número de filas:", nrow(datos_estaciones), "\n")
+cat("Número de columnas:", ncol(datos_estaciones), "\n")
+```
+
+
+
+::: panel-tabset
+## Glimpse
+
+
+
+```{r}
+glimpse(datos_estaciones)
+```
+
+
+
+## Summary
+
+
+
+```{r}
+summary(datos_estaciones)
+```
+
+
+
+## Plot Intro
+
+
+
+```{r}
+plot_intro(datos_estaciones)
+```
+
+
+
+## Plot Missing
+
+
+
+```{r}
+plot_missing(datos_estaciones)
+```
+
+
+
+## Inspect Cat
+
+
+
+```{r}
+inspect_cat(datos_estaciones)
+```
+
+
+
+## Inspect Num
+
+
+
+```{r}
+inspect_num(datos_estaciones)
+```
+
+
+:::
+
+### Datos Precipitaciones
+
+
+
+```{r}
+# Contar filas y columnas
+cat("Número de filas:", nrow(datos_precipitaciones), "\n")
+cat("Número de columnas:", ncol(datos_precipitaciones), "\n")
+```
+
+
+
+::: panel-tabset
+## Glimpse
+
+
+
+```{r}
+glimpse(datos_precipitaciones)
+```
+
+
+
+## Summary
+
+
+
+```{r}
+summary(datos_precipitaciones)
+```
+
+
+
+## Plot Intro
+
+
+
+```{r}
+plot_intro(datos_precipitaciones)
+```
+
+
+
+## Plot Missing
+
+
+
+```{r}
+plot_missing(datos_precipitaciones)
+```
+
+
+
+## Inspect Cat
+
+
+
+```{r}
+inspect_cat(datos_precipitaciones)
+```
+
+
+
+## Inspect Num
+
+
+
+```{r}
+inspect_num(datos_precipitaciones)
+```
+
+
+:::
+
+
+
+```{r}
+str(datos_precipitaciones)
+```
+
+```{r, warning=FALSE}
+datos_precipitaciones <- datos_precipitaciones %>%
+  mutate(
+    estacion = as.integer(estacion),                      # Convertir 'estacion' a entero
+    fecha = as.Date(fecha, format = "%Y-%m-%d"),          # Convertir 'fecha' a formato Date
+    precipitacion_mm = as.numeric(gsub(",", ".", precipitacion..mm.))  # Convertir 'precipitacion..mm.' a numérico
+  ) %>%
+  select(-precipitacion..mm.)  # Eliminar la columna original de precipitaciones
+
+# Verificar las transformaciones
+str(datos_precipitaciones)
+```
+
+
+
+::: panel-tabset
+## Plot intro
+
+
+
+```{r}
+plot_intro(datos_precipitaciones)
+```
+
+
+
+## Plot missing
+
+
+
+```{r}
+plot_missing(datos_precipitaciones)
+```
+
+
+:::
+
+
+
+```{r}
+datos_precipitaciones %>%
+  filter(is.na(precipitacion_mm)) %>% head()
+```
+
+```{r}
+datos_precipitaciones <- datos_precipitaciones %>%
+  filter(!is.na(precipitacion_mm))
+```
+
+```{r}
+plot_intro(datos_precipitaciones)
+```
+
+
+
+Datos limpios! Ahora creamos nuevos datsets uniendo los anteriores.
+
+
+
+```{r}
+colnames(datos_estaciones)
+```
+
+```{r}
+colnames(datos_precipitaciones)
+```
+
+```{r}
+colnames(datos_smn)
+```
+
+```{r}
+df <- datos_estaciones %>% 
+  inner_join(datos_smn, by = c("nombre" = "nombre")) %>%
+  inner_join(datos_precipitaciones, by = c("nro" = "estacion", "fecha" = "fecha"))
+```
+
+
+
+Ahorramos un poco de memoria cerrando dataframes que no vamos a usar:
+
+
+
+```{r}
+rm(datos_precipitaciones)
+rm(datos_smn)
+gc()
+```
+
+
+
+## Estructura de los datos
+
+¿Con que nos quedamos?
+
+### Datos Estaciones
+
+| Variable | Detalle |
+|----------|---------|
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+
+### Datos
+
+| Variable | Detalle |
+|----------|---------|
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+
+# Análisis Exploratorio
+
+¿Donde estan nuestras estaciones?
+
+
+
+```{r}
+glimpse(datos_estaciones)
+```
+
+```{r}
+# Crear el mapa con Plotly y Mapbox
+fig <- plot_ly(
+  data = datos_estaciones,
+  type = 'scattermapbox',
+  lat = ~latitud,
+  lon = ~longitud,
+  text = ~paste("Nombre:", nombre, "<br>Provincia:", provincia, "<br>Altura:", altura, "m"),
+  hoverinfo = 'text',
+  marker = list(size = 10, color = "blue", opacity = 0.7)
+) 
+
+# Configurar el estilo de Mapbox
+fig <- fig %>% layout(
+  mapbox = list(
+    style = "open-street-map", # Estilo de mapa
+    zoom = 4, # Nivel de zoom inicial
+    center = list(lat = -38, lon = -63) # Centro aproximado de Argentina
+  ),
+  title = "Estaciones Meteorológicas de Argentina"
+)
+
+# Mostrar el mapa
+fig
+```
+
+```{r}
+# Crear el mapa con Plotly y Mapbox
+fig <- plot_ly(
+  data = datos_estaciones,
+  type = 'scattermapbox',
+  lat = ~latitud,
+  lon = ~longitud,
+  text = ~paste("Nombre:", nombre, "<br>Provincia:", provincia, "<br>Altura:", altura, "m"),
+  hoverinfo = 'text',
+  marker = list(size = 10, color = "blue", opacity = 0.7)
+) 
+
+# Configurar el estilo de Mapbox
+fig <- fig %>% layout(
+  mapbox = list(
+    style = "open-street-map", # Estilo de mapa
+    zoom = 4, # Nivel de zoom inicial
+    center = list(lat = -38, lon = -63) # Centro aproximado de Argentina
+  ),
+  title = "Estaciones Meteorológicas de Argentina"
+)
+
+# Mostrar el mapa
+fig
+```
+
+
+
+Altura de las estaiones
+
+
+
+```{r}
+# Crear el mapa con Plotly y Mapbox
+fig <- plot_ly(
+  data = datos_estaciones,
+  type = 'scattermapbox',
+  lat = ~latitud,
+  lon = ~longitud,
+  text = ~paste("Nombre:", nombre, "<br>Provincia:", provincia, "<br>Altura:", altura, "m"),
+  hoverinfo = 'text',
+  marker = list(
+    size = 10,  # Tamaño uniforme para todos los puntos
+    color = ~altura,  # Color según la altitud
+    colorscale = 'Viridis',  # Escala de color perceptualmente uniforme
+    showscale = TRUE,  # Mostrar la barra de escala
+    opacity = 0.7  # Opacidad para mejorar la visibilidad
+  )
+)
+
+# Configurar el estilo de Mapbox
+fig <- fig %>% layout(
+  mapbox = list(
+    style = "open-street-map",  # Estilo de mapa
+    zoom = 4,  # Nivel de zoom inicial
+    center = list(lat = -38, lon = -63)  # Centro aproximado de Argentina
+  ),
+  title = "Estaciones Meteorológicas de Argentina"
+)
+
+# Mostrar el mapa
+fig
+
+```
+
+```{r}
+df_coords <- df %>%
+  group_by(latitud,longitud) %>%
+  summarise(n = n())
+```
+
+```{r}
+# Cargar los puntos del dataframe "df" que tiene latitud y longitud
+# Cargar las provincias desde el archivo GeoJSON
+provincias.comp <- geojson_sf("rasters/provincias.json")%>%
+  st_make_valid()  # Arreglar geometrías invalidas
+
+provincias <- provincias.comp[,c("nam", "geometry")]
+
+# Convertir df a objeto sf (datos espaciales) con sistema de coordenadas WGS84
+df_sf <- df_coords %>%
+  filter(!is.na(latitud) & !is.na(longitud)) %>%  
+  st_as_sf(coords = c("longitud", "latitud"), crs = 4326)
+
+estaciones_por_provincia <- st_join(df_sf, provincias)
+
+estaciones_agrupadas <- estaciones_por_provincia %>%
+  group_by(nam) %>%
+  summarise(total = n())
+
+
+# Unir el conteo con los datos geojson de las provincias
+provincias <- provincias %>%
+  st_join(estaciones_agrupadas)
+
+provincias$total[is.na(provincias$total_entregas)] <- 0
+
+# Crear el mapa con ggplot2
+ggplot(data = provincias) +
+  geom_sf(aes(fill = total)) +  # Colorear según la cantidad de entregas
+  scale_fill_viridis_c(option = "plasma", na.value = "white") +  # Paleta de colores
+  theme_minimal() +
+  labs(
+    title = "Cantidad de Entregas por Barrio en Buenos Aires",
+    fill = "Entregas"
+  )
+```
+
+
+
+## Estadísticas Descriptivas
+
+\- Código y resultados de estadísticas descriptivas para cada variable. - Análisis de tendencias básicas (media, mediana, rango) para temperatura, humedad, presión, etc.
+
+## Visualización de datos
+
+Graficos
+
+## Resultados y observaciones
+
+## Análisis de Series Temporales
+
