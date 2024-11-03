@@ -166,11 +166,11 @@ plot_bar(df)
 ```
 
 ```{r}
-plot_histogram(df)
+# plot_histogram(df)
 ```
 
 ```{r}
-plot_correlation(na.omit(df), maxcat = 5L)
+# plot_correlation(na.omit(df), maxcat = 5L)
 ```
 
 ## Limpieza de datos
@@ -189,6 +189,8 @@ df <- df %>%
     direccion_viento >= 0 & direccion_viento <= 360,
     temperatura >= -35 & temperatura <= 50
   )
+
+saveRDS(df, file = "clean_data.rds")
 ```
 
 # IDEAS ❓❓❓❓❓❓
