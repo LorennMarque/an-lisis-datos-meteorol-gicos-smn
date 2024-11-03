@@ -11,6 +11,7 @@ library(dplyr)
 library(DataExplorer) # Para usar func plot_intro
 library(tidyverse)
 library(inspectdf)
+library(lubridate)
 
 # Visualización de datos.
 library(plotly)
@@ -346,7 +347,37 @@ gc()
 ```
 
 ```{r}
+
+# Definir las fechas de inicio de cada estación
+inicio_verano <- ymd("2024-12-21")
+inicio_otoño <- ymd("2024-03-21")
+inicio_invierno <- ymd("2024-06-21")
+inicio_primavera <- ymd("2024-09-23")
+
+# Agregar las columnas 'mes', 'día' y 'estación' al dataframe
+df <- df %>%
+  mutate(
+    mes = month(fecha),
+    dia = day(fecha),
+    estacion = case_when(
+      (fecha >= inicio_verano | fecha < inicio_otoño) ~ "Verano",
+      (fecha >= inicio_otoño & fecha < inicio_invierno) ~ "Otoño",
+      (fecha >= inicio_invierno & fecha < inicio_primavera) ~ "Invierno",
+      (fecha >= inicio_primavera & fecha < inicio_verano) ~ "Primavera"
+    )
+  )
+
 saveRDS(df, file = "clean_data.rds")
+```
+
+```{r}
+  provincias_geojson <- sf::st_read("rasters/provincias.json")  # Reemplaza con la ruta correcta
+  
+  provincias_geojson <- provincias_geojson %>%
+    mutate(nam =  toupper(iconv(nam, to = "ASCII//TRANSLIT")))
+  
+  
+  provincias_geojson$nam
 ```
 
 ## Estructura de los datos
