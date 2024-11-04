@@ -226,10 +226,15 @@ df_prov <- df %>%
 ggplot(df_prov, aes(x = año, y = humedad_promedio_anual)) +
   geom_line(color = "blue") +
   facet_wrap(~ provincia, ncol = 4) +
-  labs(title = "Humedad Promedio Anual por Provincia",
-       x = "Año",
-       y = "Humedad Promedio (%)") +
-  theme_minimal()
+  labs(
+    title = "Humedad Promedio Anual por Provincia",
+    x = "Año",
+    y = "Humedad Promedio"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),  # Centra el título
+    axis.text.x = element_text(angle = 45, hjust = 1))   # Gira etiquetas del eje x para mayor legibilidad
 
 
 
@@ -239,10 +244,15 @@ ggplot(df_prov, aes(x = año, y = humedad_promedio_anual)) +
 ggplot(df_prov, aes(x = año, y = temp_promedio_anual)) +
   geom_line(color = "blue") +
   facet_wrap(~ provincia, ncol = 4) +
-  labs(title = "Temperatura Promedio Anual por Provincia",
-       x = "Año",
-       y = "Temperatura Promedio") +
-  theme_minimal()
+  labs(
+    title = "Temperatura Promedio Anual por Provincia",
+    x = "Año",
+    y = "Precipitaciones Promedio"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),  # Centra el título
+    axis.text.x = element_text(angle = 45, hjust = 1))   # Gira etiquetas del eje x para mayor legibilidad
 
 ```
 
@@ -254,6 +264,21 @@ ggplot(df_prov, aes(x = año, y = precipitaciones_promedio_anual)) +
        x = "Año",
        y = "Precipitaciones Promedio") +
   theme_minimal()
+#  theme(axis.title.y = element_text(angle = 45, hjust = 1))
+ggplot(df_prov, aes(x = año, y = precipitaciones_promedio_anual)) +
+  geom_line(color = "blue", size = 1) +  # Línea más gruesa
+  facet_wrap(~ provincia, ncol = 4, scales = "free_y") +  # Escalas independientes para el eje y
+  labs(
+    title = "Precipitaciones Promedio Anual por Provincia",
+    x = "Año",
+    y = "Precipitaciones Promedio (mm)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),  # Centra el título
+    axis.text.x = element_text(angle = 45, hjust = 1)   # Gira etiquetas del eje x para mayor legibilidad
+  )
+
 ```
 
 ```{r}
@@ -328,3 +353,53 @@ head(df_max_hum)
 ```
 
 Conclusiones:
+
+```{r}
+# Años de eventos (deberías actualizar estas listas con información confiable)
+años_la_nina <- c(1998:2001,2005,2006,2007,2008,2022)  # Agrega todos los años de la Niña
+años_el_nino <- c(2002,2003,2009, 2010, 2014,2015,2016,2023,2024)  # Agrega todos los años de El Niño
+
+# Agregar una columna al dataset para clasificar el tipo de año
+datos_eventos <- df %>%
+  mutate(tipo_evento = case_when(
+    as.numeric(year(fecha)) %in% años_el_nino ~ "El Niño",
+    as.numeric(year(fecha)) %in% años_la_nina ~ "La Niña",
+    TRUE ~ "Neutro"
+  ))
+
+```
+
+```{r}
+promedios_evento <- datos_eventos %>%
+  group_by(tipo_evento, provincia) %>%
+  summarize(
+    temperatura_promedio = mean(temperatura, na.rm = TRUE),
+    humedad_promedio = mean(humedad, na.rm = TRUE),
+    presion_promedio = mean(presion_atmosferica, na.rm = TRUE),
+    velocidad_viento_promedio = mean(velocidad_viento, na.rm = TRUE),
+    precipitacion_promedio = mean(precipitacion, na.rm = TRUE)
+  )
+
+```
+
+```{r}
+ggplot(promedios_evento, aes(x = provincia, y = temperatura_promedio, fill = tipo_evento)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Temperatura Promedio por Provincia durante El Niño, La Niña y Años Neutros",
+       x = "Provincia",
+       y = "Temperatura Promedio (°C)") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+### Conclusiones:
+
+El evento de la niña y el niño basandonos en los datos no tuvo un impacto significativo observable en estos.
+
+Por otro lado, tambien podemos observar que la estacion impacta significativamente en las mediciones que tenemos en los datos .
+
+Y los promedios anuales de las variables temperatura, precipitaciones y humedad se puede ver que la temperatura hay varia mucho menos a lo largo de los años
+
+Y las provincias donde se registraron los valores mas altos para las variables mencionadas anteriormente son: para la temperatura santiago del estero y formosa, para la humedad en todas las provincias se hubo 100% de humedad
