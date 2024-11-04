@@ -311,3 +311,20 @@ ggplot(df_estacional, aes(x = provincia, y = precipitaciones_promedio, fill = es
   scale_fill_brewer(palette = "Set1", name = "Estación del Año")+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+```{r}
+df_max_prec <- df %>%
+  select(nombre_estacion, provincia, precipitacion, fecha) %>%
+  arrange(desc(precipitacion))
+head(df_max_prec)
+df_max_temp <- df %>%
+  select(nombre_estacion, provincia, temperatura, fecha) %>%
+  arrange(desc(temperatura))
+head(df_max_temp)
+df_max_hum <- df %>%
+  select(nombre_estacion, provincia, humedad, fecha) %>%
+  arrange(desc(humedad))
+head(df_max_hum)
+```
+
+Conclusiones:
