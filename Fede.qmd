@@ -1,0 +1,693 @@
+---
+title: "Trabajo Práctico 2 | Grupo 2" 
+date: "r Sys.Date()" 
+format: html
+theme: Cosmo 
+toc: true 
+toc-location: right 
+number-sections: true 
+code-fold: true
+code-tools: true
+smooth-scroll: true
+fig-align: center 
+toc-depth: 3
+lang: es
+editor: visual
+---
+
+```{r echo = FALSE, warning = FALSE, output = FALSE}
+# Limpieza de datos.
+library(dplyr)
+library(DataExplorer) # Para usar func plot_intro
+library(tidyverse)
+library(inspectdf)
+
+# Visualización de datos.
+library(plotly)
+library(leaflet)
+
+
+# Análisis geoespacial
+library(geojsonsf)
+library(sf)
+
+
+# Carga de datos
+datos_smn <- readRDS("data/datos_smn.rds")
+
+datos_estaciones <- read.csv("data/estaciones.csv")
+
+datos_precipitaciones <- read.delim("data/smn_precipitaciones-1991-2024.txt", sep = ",")
+
+# APIs y tokens
+mapbox_token <- "pk.eyJ1IjoibG9yZW5uem8iLCJhIjoiY20xcHYyd3g2MDk0bTJxb2k4YWZvOHlmcSJ9.r4E2pcTSM89NNHBFSmvKHw"
+
+```
+
+# Trabajo Práctico 2
+
+Análisis Exploratorio de Datos de un Dataset Real
+
+## Carga y estructura de datos
+
+```{r}
+datos_precipitaciones$Fecha <-  as.Date(datos_precipitaciones$Fecha, format = "%Y-%m-%d")
+
+df <- datos_estaciones %>% 
+  inner_join(datos_smn, by = c("Nombre" = "NOMBRE")) %>%
+  inner_join(datos_precipitaciones, by = c("Nro" = "Estacion", "FECHA" = "Fecha"))
+```
+
+Formato de columnas
+
+```{r}
+colnames(df)
+```
+
+Renombrar Columnas
+
+```{r}
+df <- df %>%
+  rename( nombre_estacion = Nombre,
+                provincia = Provincia,
+                   altura = Altura,
+              id_estacion = Nro,
+                  latitud = Latitud,
+                 longitud = Longitud,
+                    fecha = FECHA,
+                     hora = HORA,
+              temperatura = TEMP,
+                  humedad = HUM,
+      presion_atmosferica = PNM,
+         direccion_viento = DD,
+         velocidad_viento = FF,
+            precipitacion = Precipitacion..mm.
+          )
+```
+
+Reorganizar Columnas
+
+```{r}
+df <- df %>%
+  dplyr::select(
+    id_estacion, nombre_estacion, provincia, altura, temperatura, humedad, presion_atmosferica, direccion_viento, velocidad_viento, precipitacion, latitud, longitud, hora, fecha
+  )
+```
+
+Formato de datos
+
+```{r, output=FALSE, warning=FALSE}
+str(df)
+```
+
+![Estructura de datos, antes de formatear](images/data_structure.png)
+
+```{r}
+# Convertir columnas a factor
+df$id_estacion <- as.factor(df$id_estacion)
+df$nombre_estacion <- as.factor(df$nombre_estacion)
+df$provincia <- as.factor(df$provincia)
+
+# Reemplazar los valores "\\N" por NA
+df$precipitacion[df$precipitacion == "\\N"] <- NA
+
+# Convertir la columna a numérico
+df$precipitacion <- as.numeric(df$precipitacion)
+```
+
+![Estructura de datos limpia](images/data_structure_formated.png)
+
+| Variable            | Concepto                      | Tipo   |
+|---------------------|-------------------------------|--------|
+| id_estacion         | Identificador de estación     | Factor |
+| nombre_estacion     | Nombre de estación            | Factor |
+| provincia           | Provincia                     | Factor |
+| altura              | Altura sobre el nivel del mar | int    |
+| temperatura         | Temperatura en UNIDAD ❓      | num    |
+| humedad             | ❓                            | num    |
+| presion_atmosferica | ❓                            | num    |
+| direccion_viento    | ❓                            | num    |
+| velocidad_viento    | ❓                            | num    |
+| precipitacion       | ❓ UNIDAD                     | num    |
+| latitud             | Latitud                       | num    |
+| longitud            | Longitud                      | num    |
+| hora                | Hora                          | num    |
+| fecha               | Fecha                         | Date   |
+
+: Diccionario de variables
+
+## Identificación de errores
+
+```{r}
+# Verificar valores nulos
+df %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "missing") %>%
+  arrange(desc(missing))
+```
+
+```{r}
+# Visualizar valores faltantes
+plot_intro(df)
+```
+
+Almacenar variables categóricas y numéricas por separado.
+
+```{r}
+introduce(df)
+```
+
+```{r}
+plot_missing(df)
+```
+
+```{r}
+plot_bar(df)
+```
+
+```{r}
+# plot_histogram(df)
+```
+
+```{r}
+# plot_correlation(na.omit(df), maxcat = 5L)
+```
+
+## Limpieza de datos
+
+id_estacion, nombre_estacion, provincia, altura, temperatura, humedad, presion_atmosferica, direccion_viento, velocidad_viento, precipitacion, latitud, longitud, hora, fecha
+
+```{r}
+# Suponiendo que tu dataset se llama 'datos'
+# Filtramos eliminando NA y restringiendo los valores al rango deseado
+df <- df %>%
+  na.omit() %>%  # Eliminar filas con NA
+  filter(
+    presion_atmosferica >= 950 & presion_atmosferica <= 1050,
+    humedad >= 0 & humedad <= 100,
+    velocidad_viento >= 0 & velocidad_viento <= 150,
+    direccion_viento >= 0 & direccion_viento <= 360,
+    temperatura >= -35 & temperatura <= 50
+  )
+
+saveRDS(df, file = "clean_data.rds")
+```
+
+# IDEAS ❓❓❓❓❓❓
+
+1.  Rango de fechas (primera y ultima) de datos cargados. LORENN
+2.  ¿Cuál es la humedad promedio en cada provincia? (anual) aplica a todas las variables. FRANCO
+3.  ¿Qué estación registró la temperatura más alta? FEDE
+4.  ¿Qué estación registró la temperatura más baja? LORENN
+5.  ¿En qué provincia se registró la mayor precipitación? (todas las variables) FRANCO
+6.  Estaciones con mayor y menor altitud. FEDE
+7.  ¿Existe correlaciónes? LORENN
+8.  variación estacional FRANCO
+9.  Fecha de apertura estaciones. FEDE
+10. condiciones climáticas más extremas LORENN
+11. ¿Se observan patrones asociados a eventos como El Niño o La Niña? FRANCO
+12. Segmentar por condiciones climaticas similares. FEDE
+
+## Visualización Georreferenciado
+
+```{r}
+df_coords <- df %>%
+  group_by(latitud,longitud) %>%
+  summarise(n = n())
+```
+
+```{r}
+# Crear el gráfico
+fig <- plot_ly(data = df_coords, 
+               type = 'scattermapbox',
+               lat = ~latitud, 
+               lon = ~longitud,
+               mode = 'markers',
+               marker = list(size = 8, color = 'blue', opacity = 0.7))
+
+# Establecer las opciones de diseño y el estilo del mapa
+fig <- fig %>%
+  layout(
+    mapbox = list(
+      style = 'open-street-map',  # Alternativas: "carto-positron", "stamen-terrain", "dark"
+      zoom = 4,                   # Nivel de zoom
+      center = list(lat = mean(df$latitud), lon = mean(df$longitud))  # Centrar en promedio de tus datos
+    )
+  )
+
+# (Opcional) Establecer el token de Mapbox si tienes uno
+if (!is.null(mapbox_token)) {
+  fig <- fig %>%
+    layout(mapbox = list(accesstoken = mapbox_token))
+}
+
+# Mostrar el gráfico
+fig
+```
+
+```{r}
+# Cargar los puntos del dataframe "df" que tiene latitud y longitud
+# Cargar las provincias desde el archivo GeoJSON
+provincias.comp <- geojson_sf("rasters/provincias.json")%>%
+  st_make_valid()  # Arreglar geometrías invalidas
+
+provincias <- provincias.comp[,c("nam", "geometry")]
+
+# Convertir df a objeto sf (datos espaciales) con sistema de coordenadas WGS84
+df_sf <- df_coords %>%
+  filter(!is.na(latitud) & !is.na(longitud)) %>%  
+  st_as_sf(coords = c("longitud", "latitud"), crs = 4326)
+
+estaciones_por_provincia <- st_join(df_sf, provincias)
+
+estaciones_agrupadas <- estaciones_por_provincia %>%
+  group_by(nam) %>%
+  summarise(total = n())
+
+
+# Unir el conteo con los datos geojson de las provincias
+provincias <- provincias %>%
+  st_join(estaciones_agrupadas)
+
+provincias$total[is.na(provincias$total_entregas)] <- 0
+
+# Crear el mapa con ggplot2
+ggplot(data = provincias) +
+  geom_sf(aes(fill = total)) +  # Colorear según la cantidad de entregas
+  scale_fill_viridis_c(option = "plasma", na.value = "white") +  # Paleta de colores
+  theme_minimal() +
+  labs(
+    title = "Cantidad de Entregas por Barrio en Buenos Aires",
+    fill = "Entregas"
+  )
+```
+
+
+
+```{r}
+#¿Qué estación registró la temperatura más alta? 
+
+# Filtrar las 30 estaciones con la temperatura más alta
+top_30_temp <- df %>%
+  group_by(nombre_estacion) %>%
+  summarise(max_temperatura = max(temperatura, na.rm = TRUE), .groups = 'drop') %>%
+  arrange(desc(max_temperatura)) %>%
+  slice_head(n = 30)
+
+# Crear el gráfico de barras
+ggplot(top_30_temp, aes(x = reorder(nombre_estacion, max_temperatura), y = max_temperatura)) +
+  geom_bar(stat = "identity", fill = "steelblue") +  # Puedes cambiar el color
+  coord_flip() +  # Gira el gráfico para mejor visibilidad
+  labs(title = "Temperaturas Máximas por Estación",
+       x = "Estación",
+       y = "Temperatura Máxima (°C)") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 8))  # Ajusta el tamaño de la etiqueta del eje y si es necesario
+```
+
+
+```{r}
+# Imprimir la estación con la temperatura más alta
+cat("La estación con la temperatura más alta es:", 
+    top_30_temp$nombre_estacion[1], 
+    "con una temperatura de", 
+    top_30_temp$max_temperatura[1], 
+    "°C.\n")
+
+```
+
+
+```{r}
+# Filtrar las 30 estaciones con la temperatura más alta y obtener sus coordenadas
+top_30_temp <- df %>%
+  group_by(nombre_estacion) %>%
+  summarise(max_temperatura = max(temperatura, na.rm = TRUE), 
+            latitud = mean(latitud, na.rm = TRUE), 
+            longitud = mean(longitud, na.rm = TRUE), .groups = 'drop') %>%
+  arrange(desc(max_temperatura)) %>%
+  slice_head(n = 30)
+
+# Crear el gráfico de mapa utilizando top_30_temp
+fig <- plot_ly(data = top_30_temp, 
+               type = 'scattermapbox',
+               lat = ~latitud, 
+               lon = ~longitud,
+               mode = 'markers',
+               marker = list(size = 8, color = top_30_temp$max_temperatura, colorscale = 'Viridis', opacity = 0.7),
+               text = ~paste(nombre_estacion, ": ", max_temperatura, "°C"))  # Texto al pasar el mouse
+
+# Establecer las opciones de diseño y el estilo del mapa
+fig <- fig %>%
+  layout(
+    title = "Ubicación de las Estaciones con Temperaturas Máximas",
+    mapbox = list(
+      style = 'open-street-map',  # Alternativas: "carto-positron", "stamen-terrain", "dark"
+      zoom = 4,                   # Nivel de zoom
+      center = list(lat = mean(top_30_temp$latitud), lon = mean(top_30_temp$longitud))  # Centrar en promedio de tus datos
+    )
+  )
+
+# (Opcional) Establecer el token de Mapbox si tienes uno
+if (!is.null(mapbox_token)) {
+  fig <- fig %>%
+    layout(mapbox = list(accesstoken = mapbox_token))
+}
+
+# Mostrar el gráfico
+fig
+
+```
+
+```{r}
+
+#Estaciones con mayor y menor altitud. 
+
+# Filtrar las 10 estaciones más al norte y al sur, asegurando que los nombres sean únicos
+top_norte <- df %>%
+  arrange(desc(latitud)) %>%
+  distinct(nombre_estacion, .keep_all = TRUE) %>%  # Mantener solo nombres únicos
+  slice_head(n = 10) %>%
+  mutate(grupo = "Norte")
+
+top_sur <- df %>%
+  arrange(latitud) %>%
+  distinct(nombre_estacion, .keep_all = TRUE) %>%  # Mantener solo nombres únicos
+  slice_head(n = 10) %>%
+  mutate(grupo = "Sur")
+
+# Combinar los datos
+estaciones_extremas <- bind_rows(top_norte, top_sur)
+
+# Crear el gráfico de mapa
+fig <- plot_ly(data = estaciones_extremas, 
+               type = 'scattermapbox',
+               lat = ~latitud, 
+               lon = ~longitud,
+               mode = 'markers',
+               marker = list(size = 10, opacity = 0.7),
+               text = ~paste(nombre_estacion, "<br>Grupo:", grupo),  # Texto al pasar el mouse
+               color = ~grupo,  # Diferenciar por grupo
+               colors = c("blue", "red"))  # Colores para los grupos
+
+# Establecer las opciones de diseño y el estilo del mapa
+fig <- fig %>%
+  layout(
+    title = "Ubicación de las 10 Estaciones Más al Norte y Más al Sur",
+    mapbox = list(
+      style = 'open-street-map',  # Alternativas: "carto-positron", "stamen-terrain", "dark"
+      zoom = 4,                   # Nivel de zoom
+      center = list(lat = mean(estaciones_extremas$latitud), 
+                     lon = mean(estaciones_extremas$longitud))  # Centrar en promedio de tus datos
+    )
+  )
+
+# (Opcional) Establecer el token de Mapbox si tienes uno
+if (!is.null(mapbox_token)) {
+  fig <- fig %>%
+    layout(mapbox = list(accesstoken = mapbox_token))
+}
+
+# Mostrar el gráfico
+fig
+
+```
+
+
+
+```{r}
+# Fecha de apertura estaciones
+
+# Asegúrate de que la columna de fecha esté en formato de fecha
+df$fecha <- as.Date(df$fecha, format = "%Y-%m-%d")  # Ajusta el formato según tu dataset
+
+# Extraer la fecha de apertura
+fecha_apertura <- df %>%
+  summarise(fecha_min = min(fecha, na.rm = TRUE),
+            fecha_max = max(fecha, na.rm = TRUE))
+
+# Encontrar la estación más antigua y más reciente
+estacion_mas_antigua <- df %>%
+  filter(fecha == fecha_apertura$fecha_min) %>%
+  select(nombre_estacion) %>%
+  distinct()
+
+estacion_mas_reciente <- df %>%
+  filter(fecha == fecha_apertura$fecha_max) %>%
+  select(nombre_estacion) %>%
+  distinct()
+
+# Extraer el año de apertura
+df$anio_apertura <- format(df$fecha, "%Y")
+
+# Contar el número de estaciones abiertas por año
+aperturas_por_anio <- df %>%
+  group_by(anio_apertura) %>%
+  summarise(cantidad = n_distinct(id_estacion), .groups = 'drop')  # Contar estaciones únicas
+
+# Crear el gráfico de barras
+ggplot(aperturas_por_anio, aes(x = anio_apertura, y = cantidad)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Número de Estaciones Abiertas por Año",
+       x = "Año de Apertura",
+       y = "Cantidad de Estaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+
+
+```{r}
+# Asegúrate de que la columna de fecha esté en formato de fecha
+df$fecha <- as.Date(df$fecha, format = "%Y-%m-%d")  # Ajusta el formato según tu dataset
+
+# Obtener la fecha mínima y máxima
+fecha_apertura <- df %>%
+  summarise(fecha_min = min(fecha, na.rm = TRUE),
+            fecha_max = max(fecha, na.rm = TRUE))
+
+# Filtrar la estación más antigua y más reciente
+estacion_mas_antigua <- df %>%
+  filter(fecha == fecha_apertura$fecha_min)
+
+estacion_mas_reciente <- df %>%
+  filter(fecha == fecha_apertura$fecha_max)
+
+# Crear un dataframe para contar las estaciones antiguas y recientes
+estaciones_categorias <- data.frame(
+  categoria = c("Antiguas", "Recientes"),
+  cantidad = c(nrow(df %>% filter(fecha == fecha_apertura$fecha_min)), 
+               nrow(df %>% filter(fecha == fecha_apertura$fecha_max)))
+)
+
+# Crear el gráfico de barras
+ggplot(estaciones_categorias, aes(x = categoria, y = cantidad, fill = categoria)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Cantidad de Estaciones Antiguas y Recientes",
+       x = "Categoría",
+       y = "Cantidad de Estaciones") +
+  scale_fill_manual(values = c("blue", "red")) +  # Cambiar colores
+  theme_minimal()
+
+```
+
+
+
+```{r}
+
+#estaciones mas antiguas
+
+# Asegúrate de que la columna de fecha esté en formato de fecha
+df$fecha <- as.Date(df$fecha, format = "%Y-%m-%d")  # Ajusta el formato según tu dataset
+
+# Filtrar las 30 estaciones más antiguas por fecha de apertura
+top_30_oldest <- df %>%
+  group_by(nombre_estacion) %>%
+  summarise(fecha_apertura = min(fecha, na.rm = TRUE),
+            latitud = mean(latitud, na.rm = TRUE), 
+            longitud = mean(longitud, na.rm = TRUE), .groups = 'drop') %>%
+  arrange(fecha_apertura) %>%
+  slice_head(n = 30)
+
+# Verificar que hay 30 estaciones
+print(nrow(top_30_oldest))
+
+# Crear el gráfico de mapa utilizando top_30_oldest
+fig <- plot_ly(data = top_30_oldest, 
+               type = 'scattermapbox',
+               lat = ~latitud, 
+               lon = ~longitud,
+               mode = 'markers',
+               marker = list(size = 8, color = 'blue', opacity = 0.7),  # Cambiar el color si es necesario
+               text = ~paste(nombre_estacion, ": Apertura en ", fecha_apertura))  # Texto al pasar el mouse
+
+# Establecer las opciones de diseño y el estilo del mapa
+fig <- fig %>%
+  layout(
+    title = "Ubicación de las Estaciones más Antiguas",
+    mapbox = list(
+      style = 'open-street-map',  # Alternativas: "carto-positron", "stamen-terrain", "dark"
+      zoom = 4,                   # Nivel de zoom
+      center = list(lat = mean(top_30_oldest$latitud), lon = mean(top_30_oldest$longitud))  # Centrar en promedio de tus datos
+    )
+  )
+
+# (Opcional) Establecer el token de Mapbox si tienes uno
+if (!is.null(mapbox_token)) {
+  fig <- fig %>%
+    layout(mapbox = list(accesstoken = mapbox_token))
+}
+
+# Mostrar el gráfico
+fig
+
+
+```
+
+
+```{r}
+#ahora una con ambas
+
+# Asegúrate de que la columna de fecha esté en formato de fecha
+df$fecha <- as.Date(df$fecha, format = "%Y-%m-%d")  # Ajusta el formato según tu dataset
+
+# Filtrar las 30 estaciones más recientes por fecha de apertura
+top_30_recent <- df %>%
+  group_by(nombre_estacion) %>%
+  summarise(fecha_apertura = max(fecha, na.rm = TRUE), 
+            latitud = mean(latitud, na.rm = TRUE), 
+            longitud = mean(longitud, na.rm = TRUE), .groups = 'drop') %>%
+  arrange(desc(fecha_apertura)) %>%
+  slice_head(n = 30)
+
+# Filtrar las 30 estaciones más antiguas por fecha de apertura
+top_30_oldest <- df %>%
+  group_by(nombre_estacion) %>%
+  summarise(fecha_apertura = min(fecha, na.rm = TRUE), 
+            latitud = mean(latitud, na.rm = TRUE), 
+            longitud = mean(longitud, na.rm = TRUE), .groups = 'drop') %>%
+  arrange(fecha_apertura) %>%
+  slice_head(n = 30)
+
+# Combinar ambos conjuntos de datos
+combined_data <- rbind(
+  top_30_recent %>% mutate(tipo = "Reciente", color = "red"),
+  top_30_oldest %>% mutate(tipo = "Antigua", color = "blue")
+)
+
+# Crear el gráfico de mapa utilizando los datos combinados
+fig <- plot_ly(data = combined_data, 
+               type = 'scattermapbox',
+               lat = ~latitud, 
+               lon = ~longitud,
+               mode = 'markers',
+               marker = list(size = 8, opacity = 0.7),
+               color = ~color,  # Usar el color según el tipo
+               colors = c("red", "blue"),  # Especificar los colores
+               text = ~paste(nombre_estacion, ": Apertura en ", fecha_apertura))  # Texto al pasar el mouse
+
+# Establecer las opciones de diseño y el estilo del mapa
+fig <- fig %>%
+  layout(
+    title = "Ubicación de las Estaciones Más Recientes (Rojo) y Más Antiguas (Azul)",
+    mapbox = list(
+      style = 'open-street-map',  # Alternativas: "carto-positron", "stamen-terrain", "dark"
+      zoom = 4,                   # Nivel de zoom
+      center = list(lat = mean(c(top_30_recent$latitud, top_30_oldest$latitud)), 
+                    lon = mean(c(top_30_recent$longitud, top_30_oldest$longitud)))  # Centrar en promedio de tus datos
+    )
+  )
+
+# (Opcional) Establecer el token de Mapbox si tienes uno
+if (!is.null(mapbox_token)) {
+  fig <- fig %>%
+    layout(mapbox = list(accesstoken = mapbox_token))
+}
+
+# Mostrar el gráfico
+fig
+
+
+```
+
+
+```{r}
+
+#Segmentar por condiciones climaticas similares. 
+
+# Calcular la ubicación promedio de cada cluster
+df_clustered_avg <- df_clustering %>%
+  group_by(cluster) %>%
+  summarise(latitud = mean(latitud, na.rm = TRUE),
+            longitud = mean(longitud, na.rm = TRUE),
+            temperatura = mean(temperatura, na.rm = TRUE),
+            humedad = mean(humedad, na.rm = TRUE))
+
+# Crear el gráfico de mapa con una estación representativa por cluster
+fig <- plot_ly(data = df_clustered_avg, 
+               type = 'scattermapbox',
+               lat = ~latitud, 
+               lon = ~longitud,
+               mode = 'markers',
+               marker = list(size = 15, opacity = 0.8),
+               text = ~paste("Cluster:", cluster, "<br>Temp promedio:", round(temperatura, 1), "°C<br>Humedad promedio:", round(humedad, 1), "%"),
+               color = ~cluster,
+               colors = "RdYlBu")
+
+fig <- fig %>%
+  layout(
+    title = "Ubicación Promedio por Cluster de Condiciones Climáticas",
+    mapbox = list(
+      style = 'open-street-map',
+      zoom = 4,
+      center = list(lat = mean(df_clustered_avg$latitud, na.rm = TRUE), 
+                    lon = mean(df_clustered_avg$longitud, na.rm = TRUE))
+    )
+  )
+
+fig
+
+
+
+```
+
+
+```{r}
+library(dplyr)
+
+# Supongamos que df_clustering tiene la columna 'cluster' ya definida.
+# Seleccionar un número igual de estaciones de cada cluster
+n_por_cluster <- 10  # Cambia esto a la cantidad de muestras que deseas por cluster
+
+df_sampled <- df_clustering %>%
+  group_by(cluster) %>%
+  sample_n(min(n_por_cluster, n())) %>%
+  ungroup()
+
+# Crear el gráfico de mapa con muestreo estratificado
+fig <- plot_ly(data = df_sampled, 
+               type = 'scattermapbox',
+               lat = ~latitud, 
+               lon = ~longitud,
+               mode = 'markers',
+               marker = list(size = 10, opacity = 0.7),
+               text = ~paste("Estación:", nombre_estacion, "<br>Cluster:", cluster, "<br>Temp:", temperatura, "°C<br>Humedad:", humedad, "%"),
+               color = ~cluster,
+               colors = "RdYlBu")
+
+fig <- fig %>%
+  layout(
+    title = "Estaciones Agrupadas por Condiciones Climáticas (Muestreo Estratificado)",
+    mapbox = list(
+      style = 'open-street-map',
+      zoom = 4,
+      center = list(lat = mean(df_sampled$latitud, na.rm = TRUE), 
+                    lon = mean(df_sampled$longitud, na.rm = TRUE))
+    )
+  )
+
+fig
+
+```
+
