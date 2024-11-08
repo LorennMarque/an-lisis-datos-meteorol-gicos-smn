@@ -273,14 +273,16 @@ ggplot(df_prov, aes(x = año, y = precipitaciones_promedio_anual)) +
 
 ```{r}
 
-df_estacional <- df %>%
+df <- df %>%
   mutate(mes = month(fecha),
          estacion_año = case_when(
            mes %in% c(12, 1, 2) ~ "Verano",
            mes %in% c(3, 4, 5) ~ "Otoño",
            mes %in% c(6, 7, 8) ~ "Invierno",
            mes %in% c(9, 10, 11) ~ "Primavera"
-         ))%>%
+         ))
+df_estacional_1 <- df %>% filter(provincia == c("BUENOS AIRES", "CAPITAL FEDERAL"))
+df_estacional_2 <- df %>% 
   group_by(provincia,
            estacion_año) %>%
   summarize(
@@ -292,7 +294,7 @@ df_estacional <- df %>%
 ```
 
 ```{r}
-ggplot(df_estacional, aes(x = provincia, y = temperatura_promedio, fill = estacion_año)) +
+ggplot(df_estacional_2, aes(x = provincia, y = temperatura_promedio, fill = estacion_año)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Temperatura Promedio Estacional por Provincia",
        x = "Provincia",
@@ -305,7 +307,7 @@ ggplot(df_estacional, aes(x = provincia, y = temperatura_promedio, fill = estaci
 ```
 
 ```{r}
-ggplot(df_estacional, aes(x = provincia, y = humedad_promedio, fill = estacion_año)) +
+ggplot(df_estacional_2, aes(x = provincia, y = humedad_promedio, fill = estacion_año)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Humedad Promedio Estacional por Provincia",
        x = "Provincia",
@@ -317,7 +319,7 @@ ggplot(df_estacional, aes(x = provincia, y = humedad_promedio, fill = estacion_a
 ```
 
 ```{r}
-ggplot(df_estacional, aes(x = provincia, y = precipitaciones_promedio, fill = estacion_año)) +
+ggplot(df_estacional_2, aes(x = provincia, y = precipitaciones_promedio, fill = estacion_año)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Precipitaciones Promedio Estacional por Provincia",
        x = "Provincia",
@@ -325,6 +327,30 @@ ggplot(df_estacional, aes(x = provincia, y = precipitaciones_promedio, fill = es
   theme_minimal() +
   scale_fill_brewer(palette = "Set1", name = "Estación del Año")+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+ggplot(df, aes(x = estacion_año, y = temperatura)) +
+  geom_boxplot() +
+  labs(title = "Distribución de Temperatura por Estación del Año", x = "Estación del Año", y = "Temperatura (°C)") +
+  theme_minimal()
+
+```
+
+```{r}
+# Boxplot de Humedad por Estación del Año
+ggplot(df, aes(x = estacion_año, y = humedad)) +
+  geom_boxplot() +
+  labs(title = "Distribución de Humedad por Estación del Año", x = "Estación del Año", y = "Humedad (%)") +
+  theme_minimal()
+```
+
+```{r}
+# Boxplot de precipitaciones por Estación del Año
+ggplot(df, aes(x = estacion_año, y = precipitacion)) +
+  geom_boxplot() +
+  labs(title = "Distribución de precipitacniones por Estación del Año", x = "Estación del Año", y = "precipitaciones") +
+  theme_minimal()
 ```
 
 ```{r}
@@ -414,3 +440,5 @@ Por otro lado, tambien podemos observar que la estacion impacta significativamen
 Y en los promedios anuales de las variables temperatura, precipitaciones y humedad se puede ver que no existe una gran variacion entre los años para ninguna de las variables aunque hay exepciones como en Chaco para las precipitaciones.
 
 Y las provincias donde se registraron los valores mas altos para las variables mencionadas anteriormente son: para la temperatura santiago del estero y formosa, para la humedad en todas las provincias hubo 100% de humedad.
+
+Tambien se puede ver que en precipitaciones hay muchos valores atipicos, al igual que en la temperatura pero en la humedad hay muy pocos outliers
