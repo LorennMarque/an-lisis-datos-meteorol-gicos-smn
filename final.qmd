@@ -1,6 +1,11 @@
 ---
-title: "final_presentation"
-format: html
+title: "Análisis de datos SMN"
+author: "Grupo 2: Franco Pitter, Federico Hanashiro, Lorenzo Marquesini"
+format:
+  html:
+    theme: cosmo
+    toc: true    
+    toc-depth: 2 
 editor: visual
 ---
 
@@ -36,6 +41,8 @@ mapbox_token <- "pk.eyJ1IjoibG9yZW5uem8iLCJhIjoiY20xcHYyd3g2MDk0bTJxb2k4YWZvOHlm
 ## Introducción
 
 Este análisis explora datos meteorológicos de Argentina desde 2017 a 2023, aplicando técnicas de limpieza, manipulación y visualización en R. El objetivo es estructurar un conjunto de datos "sucios" para extraer estadísticas descriptivas y visualizaciones georeferenciadas, además de realizar pronósticos de corto plazo mediante modelado de series temporales.
+
+> NOTA: La entrega tambien incluye el archivo **dash/app.r** donde se encuentra un tablero dinámico para interactuar facilmente con los datos.
 
 ## Limpieza de datos
 
@@ -393,37 +400,36 @@ saveRDS(df, file = "clean_data.rds")
 
 ## Estructura de los datos
 
-¿Con que nos quedamos?
-
-### Datos Estaciones
-
-| Variable | Detalle |
-|----------|---------|
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
+Estructura de los datos con los que vamos a trabajar en el resto del trabajo (Algunas variables van a ser definidas a lo largo del documento)
 
 ### Datos
 
-| Variable | Detalle |
-|----------|---------|
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
-|          |         |
+| Variable         | Detalle                                |
+|------------------|----------------------------------------|
+| nombre           | Nombre de la estación                  |
+| provincia        | Provincia de la estación               |
+| altura           | Altura sobre el nivel del mar          |
+| nro              | Identificador de la estación           |
+| latitud          | latitud                                |
+| longitud         | longitud                               |
+| fecha            | Fecha de carga                         |
+| hora             | Hora de carga                          |
+| temp             | Temperatura                            |
+| hum              | Humedad                                |
+| pnm              | Presión Atmosférica                    |
+| dd               | Dirección del viento                   |
+| ff               | Fuerza del viento                      |
+| precipitacion_mm | Precipitación en milimetros            |
+| año              | \-                                     |
+| mes              | \-                                     |
+| dia              | \-                                     |
+| estacion         | Estación del año                       |
+| has_rained       | Indica si ha llovido (valores 1 - 0)   |
+| ola_calor        | temperatura mayor a 35                 |
+| ola_frio         | temperatura menor a 5                  |
+| lluvia_intensa   | Precipitaciones mayores a 10mm         |
+| consec_heatwave  | Duración de olas de calor consecutivas |
+| cluster          | ( se define al final del trabajo)      |
 
 ## Análisis Descriptivo
 
@@ -466,10 +472,27 @@ ggplot(df, aes(x = ff)) +
 ## Precipitación
 
 ```{r}
-
 ggplot(df, aes(x = precipitacion_mm)) +
   geom_histogram(binwidth = 0.5, fill = "purple", color = "black") +
-  labs(title = "Distribución de la Precipitación", x = "Precipitación (mm)", y = "Frecuencia")
+  labs(title = "Distribución de la Precipitación", 
+       x = "Precipitación (mm)", 
+       y = "Frecuencia") +
+  # Limitamos el rango del eje x a los primeros 50mm donde está la mayoría de los datos
+  coord_cartesian(xlim = c(0, 50)) +
+  scale_x_continuous(
+    breaks = seq(0, 50, by = 5),  # Marcas cada 5 unidades hasta 50
+    labels = function(x) sprintf("%.0f", x)
+  ) +
+  scale_y_continuous(
+    labels = scales::comma,
+    limits = c(0, NA)  # Forzar que el eje y comience en 0
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_blank()
+  )
 ```
 :::
 
@@ -1188,18 +1211,6 @@ fig
 
 ### Análisis Comparativo de Clusters
 
-A continuación, realizamos un análisis comparativo de las características promedio de cada cluster para describir los perfiles climáticos de cada grupo.
-
--   Cluster 1: Este cluster muestra un perfil caracterizado por temperaturas moderadas y alta humedad. Las estaciones en este grupo suelen ubicarse en regiones con condiciones climáticas templadas.
-
--   Cluster 2: Compuesto por estaciones en regiones cálidas y húmedas. Este grupo probablemente representa zonas de clima tropical o subtropical, con altas temperaturas y humedad elevada.
-
--   Cluster 3: Caracterizado por bajas temperaturas y baja humedad, típico de regiones montañosas o áreas con clima árido.
-
--   Cluster 4: Este cluster incluye estaciones con alta variabilidad en la humedad y temperatura moderada, posiblemente de áreas cercanas a la costa o de transición entre climas secos y húmedos.
-
--   Cluster 5: Incluye estaciones con temperaturas elevadas y humedad baja, lo cual es característico de zonas desérticas o regiones con clima seco.
-
 Este análisis de clusters nos permite clasificar las estaciones meteorológicas en grupos homogéneos según sus características climáticas, proporcionando una visión general de las distintas regiones climáticas en el área de estudio.
 
 Conclusión: El clustering de estaciones meteorológicas nos ayuda a identificar patrones climáticos y diferencias regionales, que pueden ser útiles para estudios sobre clima, planificación ambiental y adaptación al cambio climático.
@@ -1292,6 +1303,46 @@ ggplot(df_clustered_avg_long, aes(x = cluster, y = valor, fill = variable)) +
 
 Luego de normalizar los datos y aplicar un algoritmo de clustering, identificamos varios grupos (clusters) de estaciones climáticas con características similares en diferentes regiones. El primer cluster corresponde al sur, donde la temperatura promedio es de 8.2°C y la humedad promedio es del 64%. Un segundo cluster abarca la Patagonia, con una temperatura promedio de 13.6°C y una humedad de 55.3%. Un tercer grupo corresponde a la región de Buenos Aires, con una temperatura promedio de 16.8°C y una humedad del 68.7%. El cuarto cluster se encuentra en Córdoba, donde la temperatura promedio es de 18.5°C y la humedad alcanza el 57.7%. Finalmente, un último cluster en Misiones presenta una temperatura promedio de 21°C y una humedad del 70.2%. Estos clusters nos han permitido segmentar las estaciones climáticas según sus características meteorológicas y su localización geográfica
 
-## Pronóstico Semanal
+## Series temporales
 
-Proyección diaria de lluvia, temperaturas, viento y humedad para la próxima semana.
+```{r}
+# Calcular promedios mensuales de temperatura, humedad y precipitación
+df_time_series <- df %>%
+  group_by(año, mes) %>%
+  summarise(
+    temperatura_promedio = mean(temp, na.rm = TRUE),
+    humedad_promedio = mean(hum, na.rm = TRUE),
+    precipitacion_promedio = mean(precipitacion_mm, na.rm = TRUE)
+  ) %>%
+  mutate(fecha = as.Date(paste(año, mes, "01", sep = "-")))
+```
+
+```{r}
+# 1. Gráfico de Temperatura Promedio a lo Largo del Tiempo
+ggplot(df_time_series, aes(x = fecha, y = temperatura_promedio)) +
+  geom_line(color = "red") +
+  labs(title = "Temperatura Promedio a lo Largo del Tiempo",
+       x = "Fecha",
+       y = "Temperatura Promedio (°C)") +
+  theme_minimal()
+```
+
+```{r}
+# 2. Gráfico de Humedad Promedio a lo Largo del Tiempo
+ggplot(df_time_series, aes(x = fecha, y = humedad_promedio)) +
+  geom_line(color = "blue") +
+  labs(title = "Humedad Promedio a lo Largo del Tiempo",
+       x = "Fecha",
+       y = "Humedad Promedio (%)") +
+  theme_minimal()
+```
+
+```{r}
+# 3. Gráfico de Precipitación Promedio a lo Largo del Tiempo
+ggplot(df_time_series, aes(x = fecha, y = precipitacion_promedio)) +
+  geom_line(color = "purple") +
+  labs(title = "Precipitación Promedio a lo Largo del Tiempo",
+       x = "Fecha",
+       y = "Precipitación Promedio (mm)") +
+  theme_minimal()
+```
