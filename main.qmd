@@ -21,6 +21,8 @@ library(dplyr)
 library(DataExplorer) # Para usar func plot_intro
 library(tidyverse)
 library(inspectdf)
+library(tidyr)
+library(lubridate)
 
 # Visualización de datos.
 library(plotly)

@@ -21,7 +21,8 @@ library(dplyr)
 library(DataExplorer) # Para usar func plot_intro
 library(tidyverse)
 library(inspectdf)
-
+library(lubridate)
+library(tidyr)
 # Visualización de datos.
 library(plotly)
 library(leaflet)
@@ -305,16 +306,7 @@ ggplot(top_30_temp, aes(x = reorder(nombre_estacion, max_temperatura), y = max_t
   theme(axis.text.y = element_text(size = 8))  # Ajusta el tamaño de la etiqueta del eje y si es necesario
 ```
 
-
-```{r}
-# Imprimir la estación con la temperatura más alta
-cat("La estación con la temperatura más alta es:", 
-    top_30_temp$nombre_estacion[1], 
-    "con una temperatura de", 
-    top_30_temp$max_temperatura[1], 
-    "°C.\n")
-
-```
+#
 
 
 ```{r}
@@ -358,6 +350,13 @@ fig
 
 ```
 
+## Conclusión sobre las Temperaturas Máximas
+
+El análisis muestra que las temperaturas máximas más altas en Argentina se registran en el norte y centro del país, lideradas por estaciones como Santiago del Estero y Las Lomitas con valores cercanos a 45 °C. También se observan picos elevados en zonas del litoral y del centro, como Resistencia y Córdoba, y, sorprendentemente, en áreas más al sur como San Antonio Oeste y Bahía Blanca. Esto resalta la gran variabilidad climática en Argentina, donde el calor extremo no se limita solo al norte, sino que afecta diversas regiones del país.
+
+
+
+
 ```{r}
 
 #Estaciones con mayor y menor altitud. 
@@ -387,7 +386,7 @@ fig <- plot_ly(data = estaciones_extremas,
                marker = list(size = 10, opacity = 0.7),
                text = ~paste(nombre_estacion, "<br>Grupo:", grupo),  # Texto al pasar el mouse
                color = ~grupo,  # Diferenciar por grupo
-               colors = c("blue", "red"))  # Colores para los grupos
+               colors = c("red", "blue"))  # Colores para los grupos
 
 # Establecer las opciones de diseño y el estilo del mapa
 fig <- fig %>%
@@ -412,278 +411,179 @@ fig
 
 ```
 
-
-
 ```{r}
-# Fecha de apertura estaciones
+# Paso 1: Calcular la temperatura promedio por estación (solo para las estaciones del norte y sur ya filtradas)
+temp_promedio_extremas <- df %>%
+  filter(nombre_estacion %in% estaciones_extremas$nombre_estacion) %>%
+  group_by(nombre_estacion) %>%
+  summarise(temp_promedio = mean(temperatura, na.rm = TRUE)) %>%
+  left_join(estaciones_extremas %>% select(nombre_estacion, grupo), by = "nombre_estacion")
 
-# Asegúrate de que la columna de fecha esté en formato de fecha
-df$fecha <- as.Date(df$fecha, format = "%Y-%m-%d")  # Ajusta el formato según tu dataset
+# Reordenar el factor 'nombre_estacion' según la temperatura promedio
+temp_promedio_extremas <- temp_promedio_extremas %>%
+  mutate(nombre_estacion = factor(nombre_estacion, levels = temp_promedio_extremas %>%
+                                    arrange(desc(temp_promedio)) %>%
+                                    pull(nombre_estacion)))
 
-# Extraer la fecha de apertura
-fecha_apertura <- df %>%
-  summarise(fecha_min = min(fecha, na.rm = TRUE),
-            fecha_max = max(fecha, na.rm = TRUE))
-
-# Encontrar la estación más antigua y más reciente
-estacion_mas_antigua <- df %>%
-  filter(fecha == fecha_apertura$fecha_min) %>%
-  select(nombre_estacion) %>%
-  distinct()
-
-estacion_mas_reciente <- df %>%
-  filter(fecha == fecha_apertura$fecha_max) %>%
-  select(nombre_estacion) %>%
-  distinct()
-
-# Extraer el año de apertura
-df$anio_apertura <- format(df$fecha, "%Y")
-
-# Contar el número de estaciones abiertas por año
-aperturas_por_anio <- df %>%
-  group_by(anio_apertura) %>%
-  summarise(cantidad = n_distinct(id_estacion), .groups = 'drop')  # Contar estaciones únicas
-
-# Crear el gráfico de barras
-ggplot(aperturas_por_anio, aes(x = anio_apertura, y = cantidad)) +
-  geom_bar(stat = "identity", fill = "steelblue") +
-  labs(title = "Número de Estaciones Abiertas por Año",
-       x = "Año de Apertura",
-       y = "Cantidad de Estaciones") +
+# Paso 2: Crear el gráfico comparativo
+ggplot(temp_promedio_extremas, aes(x = nombre_estacion, y = temp_promedio, fill = grupo)) +
+  geom_bar(stat = "identity", position = "dodge") +
   theme_minimal() +
+  labs(title = "Temperaturas Promedio de Estaciones del Norte y Sur",
+       x = "Estación", 
+       y = "Temperatura Promedio (°C)",
+       fill = "Grupo") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-
 ```
+
+
+## Análisis de Temperaturas Promedio entre Estaciones del Norte y Sur
+
+Tras analizar las temperaturas promedio de estaciones meteorológicas en el norte y sur de Argentina, se observa una marcada diferencia entre ambas regiones. Las estaciones del norte, como *Bernardo de Irigoyen AERO* (27.8 °C) y *Las Lomitas* (25.22 °C), presentan temperaturas promedio considerablemente altas, con valores que oscilan entre 19.7 °C y 27.8 °C. Este patrón refleja la influencia del clima cálido característico de la región.
+
+Por otro lado, las estaciones del sur muestran temperaturas significativamente más bajas. Estaciones como *Río Grande B.A.* (5.89 °C) y *Ushuaia AERO* (6.17 °C) registran promedios en un rango de 5.89 °C a 13.59 °C, debido a las condiciones frías de la región patagónica y su proximidad a zonas de mayor latitud.
+
+**Conclusión**: Este análisis resalta el contraste climático en Argentina, donde las estaciones del norte presentan temperaturas más cálidas en comparación con las del sur, alineándose con la variación latitudinal y las características geográficas del país.
 
 
 
 ```{r}
-# Asegúrate de que la columna de fecha esté en formato de fecha
-df$fecha <- as.Date(df$fecha, format = "%Y-%m-%d")  # Ajusta el formato según tu dataset
 
-# Obtener la fecha mínima y máxima
-fecha_apertura <- df %>%
-  summarise(fecha_min = min(fecha, na.rm = TRUE),
-            fecha_max = max(fecha, na.rm = TRUE))
+# Paso 1: Filtrar el dataset y agrupar por fecha de apertura (con días completos)
+df_filtrado <- df %>%
+  arrange(nombre_estacion, fecha) %>%  # Ordenar por estación y fecha
+  group_by(nombre_estacion) %>%
+  slice_head(n = 1) %>%  # Tomar el primer registro por estación (fecha de apertura)
+  ungroup()  # Eliminar el agrupamiento
 
-# Filtrar la estación más antigua y más reciente
-estacion_mas_antigua <- df %>%
-  filter(fecha == fecha_apertura$fecha_min)
+# Paso 2: Cambiar el formato de la fecha
+df_filtrado <- df_filtrado %>%
+  mutate(fecha_formateada = format(fecha, "%Y-%m-%d"))  # Cambiar el formato a 'año-mes-día'
 
-estacion_mas_reciente <- df %>%
-  filter(fecha == fecha_apertura$fecha_max)
+# Paso 3: Contar la cantidad de estaciones por fecha de apertura
+df_fecha_apertura <- df_filtrado %>%
+  group_by(fecha_formateada) %>%
+  summarise(cantidad_estaciones = n(), .groups = "drop") %>%
+  arrange(fecha_formateada)  # Ordenar por fecha
 
-# Crear un dataframe para contar las estaciones antiguas y recientes
-estaciones_categorias <- data.frame(
-  categoria = c("Antiguas", "Recientes"),
-  cantidad = c(nrow(df %>% filter(fecha == fecha_apertura$fecha_min)), 
-               nrow(df %>% filter(fecha == fecha_apertura$fecha_max)))
-)
-
-# Crear el gráfico de barras
-ggplot(estaciones_categorias, aes(x = categoria, y = cantidad, fill = categoria)) +
-  geom_bar(stat = "identity") +
-  labs(title = "Cantidad de Estaciones Antiguas y Recientes",
-       x = "Categoría",
+# Paso 4: Graficar la cantidad de estaciones por fecha de apertura
+ggplot(df_fecha_apertura, aes(x = fecha_formateada, y = cantidad_estaciones)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  theme_minimal() +
+  labs(title = "Cantidad de Estaciones por Fecha de Apertura",
+       x = "Fecha de Apertura", 
        y = "Cantidad de Estaciones") +
-  scale_fill_manual(values = c("blue", "red")) +  # Cambiar colores
-  theme_minimal()
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotar las etiquetas del eje x para mejorar la legibilidad
+
 
 ```
+```{r}
+# Paso 1: Filtrar el dataset original y obtener el día de apertura para cada estación
+df_filtrado <- df %>%
+  arrange(nombre_estacion, fecha) %>%  # Ordenar por estación y fecha
+  group_by(nombre_estacion) %>%
+  slice_head(n = 1) %>%  # Tomar el primer registro por estación (fecha de apertura)
+  ungroup()
+
+# Paso 2: Contar la cantidad de estaciones por fecha de apertura (usando la columna `fecha` existente)
+df_fecha_apertura <- df_filtrado %>%
+  group_by(fecha) %>%
+  summarise(cantidad_estaciones = n(), .groups = "drop") %>%
+  arrange(desc(cantidad_estaciones))  # Ordenar por cantidad de estaciones de mayor a menor
+
+# Mostrar el resultado
+print(df_fecha_apertura)
 
 
+```
+#Es posible que en nuestro conjunto de datos existieran nombres de estaciones repetidos, lo cual podría haber generado inconsistencias al momento de analizar las fechas de apertura de las estaciones. Para evitar estos problemas, realizamos un procedimiento de filtrado en el que seleccionamos únicamente la primera fecha de apertura registrada para cada estación, asegurando así que cada estación fuera representada solo una vez en el análisis
 
 ```{r}
 
-#estaciones mas antiguas
+# Paso 1: Crear una columna que agrupe estaciones con nombres similares
+df_filtrado_estaciones <- df_filtrado %>%
+  mutate(grupo_estacion = substr(nombre_estacion, 1, 20))  # Agrupar por las primeras 5 letras del nombre
 
-# Asegúrate de que la columna de fecha esté en formato de fecha
-df$fecha <- as.Date(df$fecha, format = "%Y-%m-%d")  # Ajusta el formato según tu dataset
-
-# Filtrar las 30 estaciones más antiguas por fecha de apertura
-top_30_oldest <- df %>%
+# Paso 2: Ordenar y agrupar para identificar fechas de apertura y cierre
+df_abiertas_cerradas <- df %>%
   group_by(nombre_estacion) %>%
-  summarise(fecha_apertura = min(fecha, na.rm = TRUE),
-            latitud = mean(latitud, na.rm = TRUE), 
-            longitud = mean(longitud, na.rm = TRUE), .groups = 'drop') %>%
-  arrange(fecha_apertura) %>%
-  slice_head(n = 30)
+  summarise(
+    fecha_apertura = min(fecha, na.rm = TRUE),
+    fecha_cierre = max(fecha, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  # Convertir fechas a formato día-mes-año
+  mutate(
+    fecha_apertura = format(fecha_apertura, "%d-%m-%Y"),
+    fecha_cierre = format(fecha_cierre, "%d-%m-%Y")
+  ) %>%
+  arrange(fecha_apertura)  # Ordenar por fecha de apertura
 
-# Verificar que hay 30 estaciones
-print(nrow(top_30_oldest))
-
-# Crear el gráfico de mapa utilizando top_30_oldest
-fig <- plot_ly(data = top_30_oldest, 
-               type = 'scattermapbox',
-               lat = ~latitud, 
-               lon = ~longitud,
-               mode = 'markers',
-               marker = list(size = 8, color = 'blue', opacity = 0.7),  # Cambiar el color si es necesario
-               text = ~paste(nombre_estacion, ": Apertura en ", fecha_apertura))  # Texto al pasar el mouse
-
-# Establecer las opciones de diseño y el estilo del mapa
-fig <- fig %>%
-  layout(
-    title = "Ubicación de las Estaciones más Antiguas",
-    mapbox = list(
-      style = 'open-street-map',  # Alternativas: "carto-positron", "stamen-terrain", "dark"
-      zoom = 4,                   # Nivel de zoom
-      center = list(lat = mean(top_30_oldest$latitud), lon = mean(top_30_oldest$longitud))  # Centrar en promedio de tus datos
-    )
-  )
-
-# (Opcional) Establecer el token de Mapbox si tienes uno
-if (!is.null(mapbox_token)) {
-  fig <- fig %>%
-    layout(mapbox = list(accesstoken = mapbox_token))
-}
-
-# Mostrar el gráfico
-fig
-
+# Mostrar el resultado
+df_abiertas_cerradas
 
 ```
 
 
-```{r}
-#ahora una con ambas
-
-# Asegúrate de que la columna de fecha esté en formato de fecha
-df$fecha <- as.Date(df$fecha, format = "%Y-%m-%d")  # Ajusta el formato según tu dataset
-
-# Filtrar las 30 estaciones más recientes por fecha de apertura
-top_30_recent <- df %>%
-  group_by(nombre_estacion) %>%
-  summarise(fecha_apertura = max(fecha, na.rm = TRUE), 
-            latitud = mean(latitud, na.rm = TRUE), 
-            longitud = mean(longitud, na.rm = TRUE), .groups = 'drop') %>%
-  arrange(desc(fecha_apertura)) %>%
-  slice_head(n = 30)
-
-# Filtrar las 30 estaciones más antiguas por fecha de apertura
-top_30_oldest <- df %>%
-  group_by(nombre_estacion) %>%
-  summarise(fecha_apertura = min(fecha, na.rm = TRUE), 
-            latitud = mean(latitud, na.rm = TRUE), 
-            longitud = mean(longitud, na.rm = TRUE), .groups = 'drop') %>%
-  arrange(fecha_apertura) %>%
-  slice_head(n = 30)
-
-# Combinar ambos conjuntos de datos
-combined_data <- rbind(
-  top_30_recent %>% mutate(tipo = "Reciente", color = "red"),
-  top_30_oldest %>% mutate(tipo = "Antigua", color = "blue")
-)
-
-# Crear el gráfico de mapa utilizando los datos combinados
-fig <- plot_ly(data = combined_data, 
-               type = 'scattermapbox',
-               lat = ~latitud, 
-               lon = ~longitud,
-               mode = 'markers',
-               marker = list(size = 8, opacity = 0.7),
-               color = ~color,  # Usar el color según el tipo
-               colors = c("red", "blue"),  # Especificar los colores
-               text = ~paste(nombre_estacion, ": Apertura en ", fecha_apertura))  # Texto al pasar el mouse
-
-# Establecer las opciones de diseño y el estilo del mapa
-fig <- fig %>%
-  layout(
-    title = "Ubicación de las Estaciones Más Recientes (Rojo) y Más Antiguas (Azul)",
-    mapbox = list(
-      style = 'open-street-map',  # Alternativas: "carto-positron", "stamen-terrain", "dark"
-      zoom = 4,                   # Nivel de zoom
-      center = list(lat = mean(c(top_30_recent$latitud, top_30_oldest$latitud)), 
-                    lon = mean(c(top_30_recent$longitud, top_30_oldest$longitud)))  # Centrar en promedio de tus datos
-    )
-  )
-
-# (Opcional) Establecer el token de Mapbox si tienes uno
-if (!is.null(mapbox_token)) {
-  fig <- fig %>%
-    layout(mapbox = list(accesstoken = mapbox_token))
-}
-
-# Mostrar el gráfico
-fig
-
-
-```
+La distribución de fechas muestra una apertura masiva de estaciones el 1 de enero de 2018, con 90 estaciones, posiblemente indicando el inicio de una gran fase de expansión. En octubre de 2019, hubo una pequeña segunda ola con seis estaciones más abiertas en dos días. A partir de ahí, las aperturas se volvieron esporádicas, con solo una estación añadida en varias fechas hasta 2024. Tambien pudimos ver que las estaciones "USPALLATA", "TERMAS DE RIO HONDO AERO", "MAQUINCHAO", "TINOGASTA", "BERNARDO DE IRIGOYEN AERO", tienen registros de un dia solo lo cual indicaria que estas estaciònes pudieron haber sido filtrada de manera incorrecta o no tienen suficientes datos 
 
 
 ```{r}
 
 #Segmentar por condiciones climaticas similares. 
 
-# Calcular la ubicación promedio de cada cluster
-df_clustered_avg <- df_clustering %>%
-  group_by(cluster) %>%
-  summarise(latitud = mean(latitud, na.rm = TRUE),
-            longitud = mean(longitud, na.rm = TRUE),
-            temperatura = mean(temperatura, na.rm = TRUE),
-            humedad = mean(humedad, na.rm = TRUE))
+# Filtrar y seleccionar las variables relevantes (temperatura, humedad, latitud, longitud)
+df_clustering <- df %>%
+  select(temperatura, humedad, latitud, longitud) %>%
+  drop_na()  # Eliminar filas con NA
 
-# Crear el gráfico de mapa con una estación representativa por cluster
-fig <- plot_ly(data = df_clustered_avg, 
+# Verificar que latitud y longitud son numéricas
+df_clustering$latitud <- as.numeric(df_clustering$latitud)
+df_clustering$longitud <- as.numeric(df_clustering$longitud)
+
+# Normalización de los datos para evitar que latitud y longitud dominen el clustering
+df_clustering_normalized <- df_clustering %>%
+  mutate(across(c(temperatura, humedad), ~ (.-min(.)) / (max(.) - min(.))))
+
+# Realizar el clustering usando K-means con 6 clusters (puedes ajustar el número)
+set.seed(123)  # Para reproducibilidad
+kmeans_result <- kmeans(df_clustering_normalized, centers = 5)
+
+# Agregar los resultados del clustering al dataframe original
+df$cluster <- as.factor(kmeans_result$cluster)
+
+# Calcular las condiciones promedio por cluster (temperatura y humedad)
+df_clustered_avg_location <- df %>%
+  group_by(cluster) %>%
+  summarise(
+    latitud_promedio = mean(latitud, na.rm = TRUE),
+    longitud_promedio = mean(longitud, na.rm = TRUE),
+    temperatura_promedio = mean(temperatura, na.rm = TRUE),
+    humedad_promedio = mean(humedad, na.rm = TRUE)
+  )
+
+# --- Opción 1: Visualizar los centros de los clusters en un mapa ---
+fig <- plot_ly(data = df_clustered_avg_location, 
                type = 'scattermapbox',
-               lat = ~latitud, 
-               lon = ~longitud,
+               lat = ~latitud_promedio, 
+               lon = ~longitud_promedio,
                mode = 'markers',
                marker = list(size = 15, opacity = 0.8),
-               text = ~paste("Cluster:", cluster, "<br>Temp promedio:", round(temperatura, 1), "°C<br>Humedad promedio:", round(humedad, 1), "%"),
+               text = ~paste("Cluster:", cluster, 
+                             "<br>Temp promedio:", round(temperatura_promedio, 1), "°C",
+                             "<br>Humedad promedio:", round(humedad_promedio, 1), "%"),
                color = ~cluster,
                colors = "RdYlBu")
 
 fig <- fig %>%
   layout(
-    title = "Ubicación Promedio por Cluster de Condiciones Climáticas",
+    title = "Centros de Clusters Climáticos",
     mapbox = list(
       style = 'open-street-map',
       zoom = 4,
-      center = list(lat = mean(df_clustered_avg$latitud, na.rm = TRUE), 
-                    lon = mean(df_clustered_avg$longitud, na.rm = TRUE))
-    )
-  )
-
-fig
-
-
-
-```
-
-
-```{r}
-library(dplyr)
-
-# Supongamos que df_clustering tiene la columna 'cluster' ya definida.
-# Seleccionar un número igual de estaciones de cada cluster
-n_por_cluster <- 10  # Cambia esto a la cantidad de muestras que deseas por cluster
-
-df_sampled <- df_clustering %>%
-  group_by(cluster) %>%
-  sample_n(min(n_por_cluster, n())) %>%
-  ungroup()
-
-# Crear el gráfico de mapa con muestreo estratificado
-fig <- plot_ly(data = df_sampled, 
-               type = 'scattermapbox',
-               lat = ~latitud, 
-               lon = ~longitud,
-               mode = 'markers',
-               marker = list(size = 10, opacity = 0.7),
-               text = ~paste("Estación:", nombre_estacion, "<br>Cluster:", cluster, "<br>Temp:", temperatura, "°C<br>Humedad:", humedad, "%"),
-               color = ~cluster,
-               colors = "RdYlBu")
-
-fig <- fig %>%
-  layout(
-    title = "Estaciones Agrupadas por Condiciones Climáticas (Muestreo Estratificado)",
-    mapbox = list(
-      style = 'open-street-map',
-      zoom = 4,
-      center = list(lat = mean(df_sampled$latitud, na.rm = TRUE), 
-                    lon = mean(df_sampled$longitud, na.rm = TRUE))
+      center = list(lat = mean(df_clustered_avg_location$latitud_promedio, na.rm = TRUE),
+                    lon = mean(df_clustered_avg_location$longitud_promedio, na.rm = TRUE))
     )
   )
 
@@ -691,3 +591,4 @@ fig
 
 ```
 
+Luego de normalizar los datos y aplicar un algoritmo de clustering, identificamos varios grupos (clusters) de estaciones climáticas con características similares en diferentes regiones. El primer cluster corresponde al sur, donde la temperatura promedio es de 8.2°C y la humedad promedio es del 64%. Un segundo cluster abarca la Patagonia, con una temperatura promedio de 13.6°C y una humedad de 55.3%. Un tercer grupo corresponde a la región de Buenos Aires, con una temperatura promedio de 16.8°C y una humedad del 68.7%. El cuarto cluster se encuentra en Córdoba, donde la temperatura promedio es de 18.5°C y la humedad alcanza el 57.7%. Finalmente, un último cluster en Misiones presenta una temperatura promedio de 21°C y una humedad del 70.2%. Estos clusters nos han permitido segmentar las estaciones climáticas según sus características meteorológicas y su localización geográfica
