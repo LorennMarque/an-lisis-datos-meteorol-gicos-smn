@@ -1,0 +1,1297 @@
+---
+title: "final_presentation"
+format: html
+editor: visual
+---
+
+```{r echo = FALSE, warning = FALSE, output = FALSE}
+# Limpieza de datos.
+library(dplyr)
+library(DataExplorer) # Para usar func plot_intro
+library(tidyverse)
+library(inspectdf)
+library(lubridate)
+library(tidyr)
+
+# Visualización de datos.
+library(plotly)
+library(leaflet)
+
+# Análisis geoespacial
+library(geojsonsf)
+library(sf)
+
+
+# Carga de datos
+datos_smn <- readRDS("data/datos_smn.rds")
+
+datos_estaciones <- read.csv("data/estaciones.csv")
+
+datos_precipitaciones <- read.delim("data/smn_precipitaciones-1991-2024.txt", sep = ",")
+
+# APIs y tokens
+mapbox_token <- "pk.eyJ1IjoibG9yZW5uem8iLCJhIjoiY20xcHYyd3g2MDk0bTJxb2k4YWZvOHlmcSJ9.r4E2pcTSM89NNHBFSmvKHw"
+```
+
+## Introducción
+
+Este análisis explora datos meteorológicos de Argentina desde 2017 a 2023, aplicando técnicas de limpieza, manipulación y visualización en R. El objetivo es estructurar un conjunto de datos "sucios" para extraer estadísticas descriptivas y visualizaciones georeferenciadas, además de realizar pronósticos de corto plazo mediante modelado de series temporales.
+
+## Limpieza de datos
+
+Pasamos el nombre de las columnas a minúsculas
+
+```{r}
+colnames(datos_smn) <- 
+  tolower(colnames(datos_smn))
+
+colnames(datos_estaciones) <- 
+  tolower(colnames(datos_estaciones))
+
+colnames(datos_precipitaciones) <- 
+  tolower(colnames(datos_precipitaciones))
+```
+
+### Archivos proporcionados
+
+-   **Datos Horarios Diarios**: Archivos de texto con registros climáticos desde 2017 hasta 2023.
+
+```{r}
+head(datos_smn)
+```
+
+-   **Estaciones Meteorológicas**: Información detallada en *smn_estaciones.csv*.
+
+```{r}
+head(datos_estaciones)
+```
+
+-   **Precipitaciones**: Datos adicionales en *smn_precipitaciones.txt*.
+
+```{r}
+head(datos_precipitaciones)
+```
+
+### SMN Data
+
+```{r}
+# Contar filas y columnas
+cat("Número de filas:", nrow(datos_smn), "\n")
+cat("Número de columnas:", ncol(datos_smn), "\n")
+```
+
+::: panel-tabset
+## Glimpse
+
+```{r}
+glimpse(datos_smn)
+```
+
+## Summary
+
+```{r}
+summary(datos_smn)
+```
+
+## Plot Intro
+
+```{r}
+plot_intro(datos_smn)
+```
+
+## Plot Missing
+
+```{r}
+plot_missing(datos_smn)
+```
+
+## Inspect Cat
+
+```{r}
+inspect_cat(datos_smn)
+```
+
+## Inspect Num
+
+```{r}
+inspect_num(datos_smn)
+```
+:::
+
+Gracias a la introducción a los datasets vemos que:
+
+-   SMN tiene datos faltantes en temp, dd, ff, hum, pnm
+
+```{r}
+datos_smn %>%
+  filter(is.na(temp) | is.na(dd) | is.na(ff) | is.na(hum) | is.na(pnm)) %>% head()
+```
+
+```{r}
+datos_smn <- datos_smn %>%
+  filter(!is.na(temp) & !is.na(dd) & !is.na(ff) & !is.na(hum) & !is.na(pnm))
+```
+
+Despues de eliminar estos valores faltantes nos quedamos con: `{r} dim(datos_smn)`
+
+Y ahora tenemos que asegurarnos de que los valores que toma tengan sentido.
+
+```{r}
+datos_smn <- datos_smn %>%
+  filter(
+    pnm >= 950 & pnm <= 1050,
+    hum >= 0 & hum <= 100,
+    ff >= 0 & ff <= 150,
+    dd >= 0 & dd <= 360,
+    temp >= -35 & temp <= 50
+  )
+```
+
+Nuestros resultados:
+
+```{r}
+dim(datos_smn)
+```
+
+```{r}
+plot_intro(datos_smn)
+```
+
+Conversión de datos.
+
+```{r}
+glimpse(datos_smn)
+```
+
+```{r}
+str(datos_smn)
+```
+
+```{r}
+datos_smn <- datos_smn %>%
+  mutate(
+    fecha = as.Date(fecha),
+    hora = sprintf("%02d:00", hora) %>% as.POSIXct(format = "%H:%M", tz = "UTC"),
+    temp = as.numeric(temp),
+    hum = as.numeric(hum),
+    pnm = as.numeric(pnm),
+    dd = as.numeric(dd),
+    ff = as.numeric(ff),
+  )
+
+# Verificar las transformaciones
+str(datos_smn)
+```
+
+### Datos Estaciones
+
+```{r}
+# Contar filas y columnas
+cat("Número de filas:", nrow(datos_estaciones), "\n")
+cat("Número de columnas:", ncol(datos_estaciones), "\n")
+```
+
+::: panel-tabset
+## Glimpse
+
+```{r}
+glimpse(datos_estaciones)
+```
+
+## Summary
+
+```{r}
+summary(datos_estaciones)
+```
+
+## Plot Intro
+
+```{r}
+plot_intro(datos_estaciones)
+```
+
+## Plot Missing
+
+```{r}
+plot_missing(datos_estaciones)
+```
+
+## Inspect Cat
+
+```{r}
+inspect_cat(datos_estaciones)
+```
+
+## Inspect Num
+
+```{r}
+inspect_num(datos_estaciones)
+```
+:::
+
+### Datos Precipitaciones
+
+```{r}
+# Contar filas y columnas
+cat("Número de filas:", nrow(datos_precipitaciones), "\n")
+cat("Número de columnas:", ncol(datos_precipitaciones), "\n")
+```
+
+::: panel-tabset
+## Glimpse
+
+```{r}
+glimpse(datos_precipitaciones)
+```
+
+## Summary
+
+```{r}
+summary(datos_precipitaciones)
+```
+
+## Plot Intro
+
+```{r}
+plot_intro(datos_precipitaciones)
+```
+
+## Plot Missing
+
+```{r}
+plot_missing(datos_precipitaciones)
+```
+
+## Inspect Cat
+
+```{r}
+inspect_cat(datos_precipitaciones)
+```
+
+## Inspect Num
+
+```{r}
+inspect_num(datos_precipitaciones)
+```
+:::
+
+```{r}
+str(datos_precipitaciones)
+```
+
+```{r, warning=FALSE}
+datos_precipitaciones <- datos_precipitaciones %>%
+  mutate(
+    estacion = as.integer(estacion),                      # Convertir 'estacion' a entero
+    fecha = as.Date(fecha, format = "%Y-%m-%d"),          # Convertir 'fecha' a formato Date
+    precipitacion_mm = as.numeric(gsub(",", ".", precipitacion..mm.))  # Convertir 'precipitacion..mm.' a numérico
+  ) %>%
+  select(-precipitacion..mm.)  # Eliminar la columna original de precipitaciones
+
+# Verificar las transformaciones
+str(datos_precipitaciones)
+```
+
+::: panel-tabset
+## Plot intro
+
+```{r}
+plot_intro(datos_precipitaciones)
+```
+
+## Plot missing
+
+```{r}
+plot_missing(datos_precipitaciones)
+```
+:::
+
+```{r}
+datos_precipitaciones %>%
+  filter(is.na(precipitacion_mm)) %>% head()
+```
+
+```{r}
+datos_precipitaciones <- datos_precipitaciones %>%
+  filter(!is.na(precipitacion_mm))
+```
+
+```{r}
+plot_intro(datos_precipitaciones)
+```
+
+Datos limpios! Ahora creamos nuevos datsets uniendo los anteriores.
+
+```{r}
+colnames(datos_estaciones)
+```
+
+```{r}
+colnames(datos_precipitaciones)
+```
+
+```{r}
+colnames(datos_smn)
+```
+
+```{r}
+df <- datos_estaciones %>% 
+  inner_join(datos_smn, by = c("nombre" = "nombre")) %>%
+  inner_join(datos_precipitaciones, by = c("nro" = "estacion", "fecha" = "fecha"))
+```
+
+Ahorramos un poco de memoria cerrando dataframes que no vamos a usar:
+
+```{r}
+rm(datos_precipitaciones)
+rm(datos_smn)
+gc()
+```
+
+```{r}
+# Definir umbrales
+temp_calor_umbral <- 35  # Umbral para ola de calor
+temp_frio_umbral <- 5    # Umbral para ola de frío
+precip_intensa_umbral <- 10  # Umbral para lluvias intensas (mm)
+
+# Definir las fechas de inicio de cada estación
+inicio_verano <- ymd("2024-12-21")
+inicio_otoño <- ymd("2024-03-21")
+inicio_invierno <- ymd("2024-06-21")
+inicio_primavera <- ymd("2024-09-23")
+
+# Agregar las columnas 'mes', 'día' y 'estación' al dataframe
+df <- df %>%
+  mutate(
+     año = year(fecha),
+    mes = month(fecha),
+    dia = day(fecha),
+    estacion = case_when(
+      (fecha >= inicio_verano | fecha < inicio_otoño) ~ "Verano",
+      (fecha >= inicio_otoño & fecha < inicio_invierno) ~ "Otoño",
+      (fecha >= inicio_invierno & fecha < inicio_primavera) ~ "Invierno",
+      (fecha >= inicio_primavera & fecha < inicio_verano) ~ "Primavera"
+    ),
+     has_rained = if_else(!is.na(precipitacion_mm) & precipitacion_mm > 0, 1, 0),
+     ola_calor = if_else(temp > temp_calor_umbral, 1, 0),
+     ola_frio = if_else(temp < temp_frio_umbral, 1, 0),
+     lluvia_intensa = if_else(precipitacion_mm > precip_intensa_umbral, 1, 0)
+  )
+
+saveRDS(df, file = "clean_data.rds")
+```
+
+```{r}
+  provincias_geojson <- sf::st_read("rasters/provincias.json")  # Reemplaza con la ruta correcta
+  
+  provincias_geojson <- provincias_geojson %>%
+    mutate(nam =  toupper(iconv(nam, to = "ASCII//TRANSLIT")))
+  
+  
+  provincias_geojson$nam
+```
+
+## Estructura de los datos
+
+¿Con que nos quedamos?
+
+### Datos Estaciones
+
+| Variable | Detalle |
+|----------|---------|
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+
+### Datos
+
+| Variable | Detalle |
+|----------|---------|
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+|          |         |
+
+## Análisis Descriptivo
+
+Exploración de la variabilidad y distribución de temperatura, humedad, presión y viento.
+
+```{r, output=FALSE, message=FALSE}
+# Mostrar estadísticas descriptivas de las variables de interés
+df %>% dplyr::select(temp, hum, pnm, dd, ff, precipitacion_mm) %>% summary()
+```
+
+![](images/clipboard-726095644.png)
+
+Distribución de las variables
+
+::: panel-tabset
+## Temperatura
+
+```{r}
+ggplot(df, aes(x = temp)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  labs(title = "Distribución de la Temperatura", x = "Temperatura (°C)", y = "Frecuencia")
+```
+
+## Humedad
+
+```{r}
+ggplot(df, aes(x = hum)) +
+  geom_histogram(binwidth = 5, fill = "lightgreen", color = "black") +
+  labs(title = "Distribución de la Humedad", x = "Humedad (%)", y = "Frecuencia")
+```
+
+## Velocidad de viento
+
+```{r}
+ggplot(df, aes(x = ff)) +
+  geom_histogram(binwidth = 5, fill = "lightblue", color = "black") +
+  labs(title = "Distribución de la Velocidad del Viento", x = "Velocidad (km/h)", y = "Frecuencia")
+```
+
+## Precipitación
+
+```{r}
+
+ggplot(df, aes(x = precipitacion_mm)) +
+  geom_histogram(binwidth = 0.5, fill = "purple", color = "black") +
+  labs(title = "Distribución de la Precipitación", x = "Precipitación (mm)", y = "Frecuencia")
+```
+:::
+
+¿Donde estan las estaciones?
+
+::: panel-tabset
+## Ubicaciónes
+
+```{r}
+# Crear el mapa con Plotly y Mapbox
+fig <- plot_ly(
+  data = datos_estaciones,
+  type = 'scattermapbox',
+  lat = ~latitud,
+  lon = ~longitud,
+  text = ~paste("Nombre:", nombre, "<br>Provincia:", provincia, "<br>Altura:", altura, "m"),
+  hoverinfo = 'text',
+  marker = list(size = 10, color = "blue", opacity = 0.7)
+) 
+
+# Configurar el estilo de Mapbox
+fig <- fig %>% layout(
+  mapbox = list(
+    style = "open-street-map", # Estilo de mapa
+    zoom = 4, # Nivel de zoom inicial
+    center = list(lat = -38, lon = -63)
+  ),
+  title = "Estaciones Meteorológicas de Argentina"
+)
+
+# Mostrar el mapa
+fig
+```
+
+## Ubicaciones por Altura
+
+```{r}
+# Crear el mapa con Plotly y Mapbox
+fig <- plot_ly(
+  data = datos_estaciones,
+  type = 'scattermapbox',
+  lat = ~latitud,
+  lon = ~longitud,
+  text = ~paste("Nombre:", nombre, "<br>Provincia:", provincia, "<br>Altura:", altura, "m"),
+  hoverinfo = 'text',
+  marker = list(
+    size = 10,  # Tamaño uniforme para todos los puntos
+    color = ~altura,  # Color según la altitud
+    colorscale = 'Viridis',  # Escala de color perceptualmente uniforme
+    showscale = TRUE,  # Mostrar la barra de escala
+    opacity = 0.7  # Opacidad para mejorar la visibilidad
+  )
+)
+
+# Configurar el estilo de Mapbox
+fig <- fig %>% layout(
+  mapbox = list(
+    style = "open-street-map",  # Estilo de mapa
+    zoom = 4,  # Nivel de zoom inicial
+    center = list(lat = -38, lon = -63)  # Centro aproximado de Argentina
+  ),
+  title = "Estaciones Meteorológicas de Argentina"
+)
+
+# Mostrar el mapa
+fig
+```
+:::
+
+Correlación de variables
+
+```{r}
+# Seleccionar las variables numéricas para la matriz de correlación
+numerical_vars <- df %>%
+  select(temp, hum, pnm, ff, dd, precipitacion_mm, altura, longitud, latitud)
+
+# Calcular la matriz de correlación
+cor_matrix <- cor(numerical_vars, use = "complete.obs")
+
+# Visualización con plotly
+plot_ly(z = cor_matrix, 
+        x = colnames(cor_matrix), 
+        y = rownames(cor_matrix), 
+        type = "heatmap", 
+        colors = colorRamp(c("blue", "white", "red"))) %>%
+  layout(title = "Matriz de Correlación")
+
+```
+
+```{r}
+df_prov <- df %>%
+  group_by(provincia, año) %>%
+  summarise(humedad_promedio_anual = mean(hum),
+            precipitaciones_promedio_anual = mean(precipitacion_mm),
+            temp_promedio_anual = mean(temp)
+                                          
+  )
+```
+
+humedad, temperatura, precipitaciones
+
+::: panel-tabset
+## Humedad
+
+```{r}
+ggplot(df_prov, aes(x = año, y = humedad_promedio_anual)) +
+  geom_line(color = "blue", size = 1) +
+  facet_wrap(~ provincia, ncol = 4) +
+  labs(
+    title = "Humedad Promedio Anual por Provincia",
+    x = "Año",
+    y = "Humedad Promedio"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),  # Centra el título
+    axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Temperatura
+
+```{r}
+ggplot(df_prov, aes(x = año, y = temp_promedio_anual)) +
+  geom_line(color = "blue", size = 1) +
+  facet_wrap(~ provincia, ncol = 4) +
+  labs(
+    title = "Temperatura Promedio Anual por Provincia",
+    x = "Año",
+    y = "Temperatura Promedio"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),  # Centra el título
+    axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Precipitaciones
+
+```{r}
+ggplot(df_prov, aes(x = año, y = precipitaciones_promedio_anual)) +
+  geom_line(color = "blue", size = 1) +
+  facet_wrap(~ provincia, ncol = 4) +
+  labs(title = "Precipitaciones Promedio Anual por Provincia",
+       x = "Año",
+       y = "Precipitaciones Promedio") +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),  # Centra el título
+    axis.text.x = element_text(angle = 45, hjust = 1)   # Gira etiquetas del eje x para mayor legibilidad
+  )
+
+```
+:::
+
+### Análisis por estaciones
+
+::: panel-tabset
+## Temperatura
+
+```{r}
+df_estacional_2 <- df %>% 
+  group_by(provincia,
+           estacion) %>%
+  summarize(
+    temperatura_promedio = mean(temp, na.rm = TRUE),
+    humedad_promedio = mean(hum, na.rm = TRUE),
+    precipitaciones_promedio = mean(precipitacion_mm, na.rm = TRUE)
+  )
+```
+
+```{r}
+ggplot(df_estacional_2, aes(x = provincia, y = temperatura_promedio, fill = estacion)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Temperatura Promedio Estacional por Provincia",
+       x = "Provincia",
+       y = "Temperatura Promedio (°C)") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1", name = "Estación del Año")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Humedad
+
+```{r}
+ggplot(df_estacional_2, aes(x = provincia, y = humedad_promedio, fill = estacion)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Humedad Promedio Estacional por Provincia",
+       x = "Provincia",
+       y = "Humedad Promedio") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1", name = "Estación del Año")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Precipitacion
+
+```{r}
+ggplot(df_estacional_2, aes(x = provincia, y = precipitaciones_promedio, fill = estacion)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Precipitaciones Promedio Estacional por Provincia",
+       x = "Provincia",
+       y = "Precipitaciones Promedio") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1", name = "Estación del Año")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+:::
+
+Boxplot por estación
+
+::: panel-tabset
+## Temperatura
+
+```{r}
+ggplot(df, aes(x = estacion, y = temp)) +
+  geom_boxplot() +
+  labs(title = "Distribución de Temperatura por Estación del Año", x = "Estación del Año", y = "Temperatura (°C)") +
+  theme_minimal()
+```
+
+## Humedad
+
+```{r}
+ggplot(df, aes(x = estacion, y = hum)) +
+  geom_boxplot() +
+  labs(title = "Distribución de Humedad por Estación del Año", x = "Estación del Año", y = "Humedad (%)") +
+  theme_minimal()
+```
+
+## Precipitación
+
+```{r}
+# Boxplot de precipitaciones por Estación del Año
+ggplot(df, aes(x = estacion, y = precipitacion_mm)) +
+  geom_boxplot() +
+  labs(title = "Distribución de precipitacniones por Estación del Año", x = "Estación del Año", y = "precipitaciones") +
+  theme_minimal()
+```
+:::
+
+```{r}
+df_max_prec <- df %>%
+  select(nombre, provincia, precipitacion_mm, fecha) %>%
+  arrange(desc(precipitacion_mm)) %>%
+  head(10)
+
+df_max_temp <- df %>%
+  select(nombre, provincia, temp, fecha) %>%
+  arrange(desc(temp))%>%
+  head(10)
+
+df_max_hum <- df %>%
+  select(nombre, provincia, hum, fecha) %>%
+  arrange(desc(hum))%>%
+  head(10)
+```
+
+Efecto del niño y la niña
+
+```{r}
+# Años de eventos (deberías actualizar estas listas con información confiable)
+años_la_nina <- c(1998:2001,2005,2006,2007,2008,2022)  # Agrega todos los años de la Niña
+años_el_nino <- c(2002,2003,2009, 2010, 2014,2015,2016,2023,2024)  # Agrega todos los años de El Niño
+
+# Agregar una columna al dataset para clasificar el tipo de año
+datos_eventos <- df %>%
+  mutate(tipo_evento = case_when(
+    as.numeric(year(fecha)) %in% años_el_nino ~ "El Niño",
+    as.numeric(year(fecha)) %in% años_la_nina ~ "La Niña",
+    TRUE ~ "Neutro"
+  ))
+```
+
+```{r}
+promedios_evento <- datos_eventos %>%
+  group_by(tipo_evento, provincia) %>%
+  summarize(
+    temperatura_promedio = mean(temp, na.rm = TRUE),
+    humedad_promedio = mean(hum, na.rm = TRUE),
+    velocidad_viento_promedio = mean(ff, na.rm = TRUE),
+    precipitacion_promedio = mean(precipitacion_mm, na.rm = TRUE)
+  )
+
+```
+
+::: panel-tabset
+## Temperatura
+
+```{r}
+ggplot(promedios_evento, aes(x = provincia, y = temperatura_promedio, fill = tipo_evento)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Temperatura Promedio por Provincia durante El Niño, La Niña y Años Neutros",
+       x = "Provincia",
+       y = "Temperatura Promedio (°C)") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Humedad
+
+```{r}
+ggplot(promedios_evento, aes(x = provincia, y = precipitacion_promedio, fill = tipo_evento)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Precipitaciones Promedio por Provincia durante El Niño, La Niña y Años Neutros",
+       x = "Provincia",
+       y = "Precipitaciones Promedio") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Precipitacion
+
+```{r}
+ggplot(promedios_evento, aes(x = provincia, y = humedad_promedio, fill = tipo_evento)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Humedad Promedio por Provincia durante El Niño, La Niña y Años Neutros",
+       x = "Provincia",
+       y = "Humedad Promedio") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+:::
+
+El evento de la niña y el niño basandonos en las variables y sus valores dados en el dataset, para la temperatura no hay un patron que siga pero para la humedad y precipitaciones si que hay un pequeño patron el cual es que en los años de la niña la humedad y las precipitaciones, bajan con respecto a los años del niño y los neutros.
+
+Por otro lado, tambien podemos observar que la estacion impacta significativamente en las mediciones que tenemos en los datos . Por ejemplo en verano suele haber mas precipitaciones que en las demas estaciones, y para la humedad suele haber un poco mas en otoño que en las otras.
+
+Y en los promedios anuales de las variables temperatura, precipitaciones y humedad se puede ver que no existe una gran variacion entre los años para ninguna de las variables aunque hay exepciones como en Chaco para las precipitaciones.
+
+Y las provincias donde se registraron los valores mas altos para las variables mencionadas anteriormente son: para la temperatura santiago del estero y formosa, para la humedad en todas las provincias hubo 100% de humedad.
+
+Tambien se puede ver que en precipitaciones hay muchos valores atipicos, al igual que en la temperatura pero en la humedad hay muy pocos outliers
+
+¿Qué estación registró la temperatura más alta?
+
+```{r}
+# Filtrar las 30 estaciones con la temperatura más alta
+top_30_temp <- df %>%
+  group_by(nombre) %>%
+  summarise(max_temperatura = max(temp, na.rm = TRUE), .groups = 'drop') %>%
+  arrange(desc(max_temperatura)) %>%
+  slice_head(n = 30)
+
+# Crear el gráfico de barras
+ggplot(top_30_temp, aes(x = reorder(nombre, max_temperatura), y = max_temperatura)) +
+  geom_bar(stat = "identity", fill = "steelblue") +  # Puedes cambiar el color
+  coord_flip() +  # Gira el gráfico para mejor visibilidad
+  labs(title = "Temperaturas Máximas por Estación",
+       x = "Estación",
+       y = "Temperatura Máxima (°C)") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 8))  # Ajusta el tamaño de la etiqueta del eje y si es necesario
+```
+
+Estaciones con temperaturas más altas
+
+```{r}
+# Filtrar las 30 estaciones con la temperatura más alta y obtener sus coordenadas
+top_30_temp <- df %>%
+  group_by(nombre) %>%
+  summarise(max_temperatura = max(temp, na.rm = TRUE), 
+            latitud = mean(latitud, na.rm = TRUE), 
+            longitud = mean(longitud, na.rm = TRUE), .groups = 'drop') %>%
+  arrange(desc(max_temperatura)) %>%
+  slice_head(n = 30)
+
+# Crear el gráfico de mapa utilizando top_30_temp
+fig <- plot_ly(data = top_30_temp, 
+               type = 'scattermapbox',
+               lat = ~latitud, 
+               lon = ~longitud,
+               mode = 'markers',
+               marker = list(size = 8, color = top_30_temp$max_temperatura, colorscale = 'Viridis', opacity = 0.7),
+               text = ~paste(nombre, ": ", max_temperatura, "°C"))  # Texto al pasar el mouse
+
+# Establecer las opciones de diseño y el estilo del mapa
+fig <- fig %>%
+  layout(
+    title = "Ubicación de las Estaciones con Temperaturas Máximas",
+    mapbox = list(
+      style = 'open-street-map',  # Alternativas: "carto-positron", "stamen-terrain", "dark"
+      zoom = 4,                   # Nivel de zoom
+      center = list(lat = mean(top_30_temp$latitud), lon = mean(top_30_temp$longitud))  # Centrar en promedio de tus datos
+    )
+  )
+
+# (Opcional) Establecer el token de Mapbox si tienes uno
+if (!is.null(mapbox_token)) {
+  fig <- fig %>%
+    layout(mapbox = list(accesstoken = mapbox_token))
+}
+
+# Mostrar el gráfico
+fig
+```
+
+El análisis muestra que las temperaturas máximas más altas en Argentina se registran en el norte y centro del país, lideradas por estaciones como Santiago del Estero y Las Lomitas con valores cercanos a 45 °C. También se observan picos elevados en zonas del litoral y del centro, como Resistencia y Córdoba, y, sorprendentemente, en áreas más al sur como San Antonio Oeste y Bahía Blanca. Esto resalta la gran variabilidad climática en Argentina, donde el calor extremo no se limita solo al norte, sino que afecta diversas regiones del país.
+
+```{r}
+
+#Estaciones con mayor y menor altitud. 
+
+# Filtrar las 10 estaciones más al norte y al sur, asegurando que los nombres sean únicos
+top_norte <- df %>%
+  arrange(desc(latitud)) %>%
+  distinct(nombre, .keep_all = TRUE) %>%  # Mantener solo nombres únicos
+  slice_head(n = 10) %>%
+  mutate(grupo = "Norte")
+
+top_sur <- df %>%
+  arrange(latitud) %>%
+  distinct(nombre, .keep_all = TRUE) %>%  # Mantener solo nombres únicos
+  slice_head(n = 10) %>%
+  mutate(grupo = "Sur")
+
+# Combinar los datos
+estaciones_extremas <- bind_rows(top_norte, top_sur)
+
+# Crear el gráfico de mapa
+fig <- plot_ly(data = estaciones_extremas, 
+               type = 'scattermapbox',
+               lat = ~latitud, 
+               lon = ~longitud,
+               mode = 'markers',
+               marker = list(size = 10, opacity = 0.7),
+               text = ~paste(nombre, "<br>Grupo:", grupo),  # Texto al pasar el mouse
+               color = ~grupo,  # Diferenciar por grupo
+               colors = c("red", "blue"))  # Colores para los grupos
+
+# Establecer las opciones de diseño y el estilo del mapa
+fig <- fig %>%
+  layout(
+    title = "Ubicación de las 10 Estaciones Más al Norte y Más al Sur",
+    mapbox = list(
+      style = 'open-street-map',  # Alternativas: "carto-positron", "stamen-terrain", "dark"
+      zoom = 4,                   # Nivel de zoom
+      center = list(lat = mean(estaciones_extremas$latitud), 
+                     lon = mean(estaciones_extremas$longitud))  # Centrar en promedio de tus datos
+    )
+  )
+
+# (Opcional) Establecer el token de Mapbox si tienes uno
+if (!is.null(mapbox_token)) {
+  fig <- fig %>%
+    layout(mapbox = list(accesstoken = mapbox_token))
+}
+
+# Mostrar el gráfico
+fig
+
+```
+
+```{r}
+# Paso 1: Calcular la temperatura promedio por estación (solo para las estaciones del norte y sur ya filtradas)
+temp_promedio_extremas <- df %>%
+  filter(nombre %in% estaciones_extremas$nombre) %>%
+  group_by(nombre) %>%
+  summarise(temp_promedio = mean(temp, na.rm = TRUE)) %>%
+  left_join(estaciones_extremas %>% select(nombre, grupo), by = "nombre")
+
+# Reordenar el factor 'nombre' según la temperatura promedio
+temp_promedio_extremas <- temp_promedio_extremas %>%
+  mutate(nombre = factor(nombre, levels = temp_promedio_extremas %>%
+                                    arrange(desc(temp_promedio)) %>%
+                                    pull(nombre)))
+
+# Paso 2: Crear el gráfico comparativo
+ggplot(temp_promedio_extremas, aes(x = nombre, y = temp_promedio, fill = grupo)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(title = "Temperaturas Promedio de Estaciones del Norte y Sur",
+       x = "Estación", 
+       y = "Temperatura Promedio (°C)",
+       fill = "Grupo") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Tras analizar las temperaturas promedio de estaciones meteorológicas en el norte y sur de Argentina, se observa una marcada diferencia entre ambas regiones. Las estaciones del norte, como *Bernardo de Irigoyen AERO* (27.8 °C) y *Las Lomitas* (25.22 °C), presentan temperaturas promedio considerablemente altas, con valores que oscilan entre 19.7 °C y 27.8 °C. Este patrón refleja la influencia del clima cálido característico de la región.
+
+Por otro lado, las estaciones del sur muestran temperaturas significativamente más bajas. Estaciones como *Río Grande B.A.* (5.89 °C) y *Ushuaia AERO* (6.17 °C) registran promedios en un rango de 5.89 °C a 13.59 °C, debido a las condiciones frías de la región patagónica y su proximidad a zonas de mayor latitud.
+
+**Conclusión**: Este análisis resalta el contraste climático en Argentina, donde las estaciones del norte presentan temperaturas más cálidas en comparación con las del sur, alineándose con la variación latitudinal y las características geográficas del país.
+
+```{r}
+# Paso 1: Filtrar el dataset y agrupar por fecha de apertura (con días completos)
+df_filtrado <- df %>%
+  arrange(nombre, fecha) %>%  # Ordenar por estación y fecha
+  group_by(nombre) %>%
+  slice_head(n = 1) %>%  # Tomar el primer registro por estación (fecha de apertura)
+  ungroup()  # Eliminar el agrupamiento
+
+# Paso 2: Cambiar el formato de la fecha
+df_filtrado <- df_filtrado %>%
+  mutate(fecha_formateada = format(fecha, "%Y-%m-%d"))  # Cambiar el formato a 'año-mes-día'
+
+# Paso 3: Contar la cantidad de estaciones por fecha de apertura
+df_fecha_apertura <- df_filtrado %>%
+  group_by(fecha_formateada) %>%
+  summarise(cantidad_estaciones = n(), .groups = "drop") %>%
+  arrange(fecha_formateada)  # Ordenar por fecha
+
+# Paso 4: Graficar la cantidad de estaciones por fecha de apertura
+ggplot(df_fecha_apertura, aes(x = fecha_formateada, y = cantidad_estaciones)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  theme_minimal() +
+  labs(title = "Cantidad de Estaciones por Fecha de Apertura",
+       x = "Fecha de Apertura", 
+       y = "Cantidad de Estaciones") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotar las etiquetas del eje x para mejorar la legibilidad
+
+```
+
+```{r}
+# Paso 1: Filtrar el dataset original y obtener el día de apertura para cada estación
+df_filtrado <- df %>%
+  arrange(nombre, fecha) %>%  # Ordenar por estación y fecha
+  group_by(nombre) %>%
+  slice_head(n = 1) %>%  # Tomar el primer registro por estación (fecha de apertura)
+  ungroup()
+
+# Paso 2: Contar la cantidad de estaciones por fecha de apertura (usando la columna `fecha` existente)
+df_fecha_apertura <- df_filtrado %>%
+  group_by(fecha) %>%
+  summarise(cantidad_estaciones = n(), .groups = "drop") %>%
+  arrange(desc(cantidad_estaciones))  # Ordenar por cantidad de estaciones de mayor a menor
+
+# Mostrar el resultado
+print(df_fecha_apertura)
+
+```
+
+Es posible que en nuestro conjunto de datos existieran nombres de estaciones repetidos, lo cual podría haber generado inconsistencias al momento de analizar las fechas de apertura de las estaciones. Para evitar estos problemas, realizamos un procedimiento de filtrado en el que seleccionamos únicamente la primera fecha de apertura registrada para cada estación, asegurando así que cada estación fuera representada solo una vez en el análisis
+
+```{r}
+# Paso 1: Crear una columna que agrupe estaciones con nombres similares
+df_filtrado_estaciones <- df_filtrado %>%
+  mutate(grupo_estacion = substr(nombre, 1, 20))  # Agrupar por las primeras 5 letras del nombre
+
+# Paso 2: Ordenar y agrupar para identificar fechas de apertura y cierre
+df_abiertas_cerradas <- df %>%
+  group_by(nombre) %>%
+  summarise(
+    fecha_apertura = min(fecha, na.rm = TRUE),
+    fecha_cierre = max(fecha, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  # Convertir fechas a formato día-mes-año
+  mutate(
+    fecha_apertura = format(fecha_apertura, "%d-%m-%Y"),
+    fecha_cierre = format(fecha_cierre, "%d-%m-%Y")
+  ) %>%
+  arrange(fecha_apertura)  # Ordenar por fecha de apertura
+
+# Mostrar el resultado
+df_abiertas_cerradas
+```
+
+La distribución de fechas muestra una apertura masiva de estaciones el 1 de enero de 2018, con 90 estaciones, posiblemente indicando el inicio de una gran fase de expansión. En octubre de 2019, hubo una pequeña segunda ola con seis estaciones más abiertas en dos días. A partir de ahí, las aperturas se volvieron esporádicas, con solo una estación añadida en varias fechas hasta 2024. Tambien pudimos ver que las estaciones "USPALLATA", "TERMAS DE RIO HONDO AERO", "MAQUINCHAO", "TINOGASTA", "BERNARDO DE IRIGOYEN AERO", tienen registros de un dia solo lo cual indicaria que estas estaciònes pudieron haber sido filtrada de manera incorrecta o no tienen suficientes datos
+
+## Análisis de Eventos Extremos
+
+Estudio de la frecuencia, duración y patrones de olas de calor, frío y lluvias intensas.
+
+```{r}
+# Contar frecuencia de eventos extremos por año
+eventos_frecuencia <- df %>%
+  group_by(año) %>%
+  summarise(
+    olas_calor = sum(ola_calor),
+    olas_frio = sum(ola_frio),
+    lluvias_intensas = sum(lluvia_intensa)
+  )
+
+# Gráfico de eventos extremos
+ggplot(eventos_frecuencia, aes(x = año)) +
+  geom_line(aes(y = olas_calor, color = "Olas de Calor")) +
+  geom_line(aes(y = olas_frio, color = "Olas de Frío")) +
+  geom_line(aes(y = lluvias_intensas, color = "Lluvias Intensas")) +
+  labs(title = "Frecuencia Anual de Eventos Extremos", y = "Número de Eventos", color = "Tipo de Evento") +
+  theme_minimal()
+```
+
+## Estacionalidad y Ciclos Anuales
+
+Análisis de los cambios en temperatura y precipitación a lo largo de las estaciones.
+
+```{r}
+# Calcular promedios estacionales
+df_estacional <- df %>%
+  group_by(estacion) %>%
+  summarise(
+    temp_promedio = mean(temp, na.rm = TRUE),
+    precipitacion_promedio = mean(precipitacion_mm, na.rm = TRUE)
+  )
+
+# Gráfico de estacionalidad
+ggplot(df_estacional, aes(x = estacion)) +
+  geom_bar(aes(y = temp_promedio, fill = "Temperatura"), stat = "identity", position = "dodge") +
+  geom_bar(aes(y = precipitacion_promedio, fill = "Precipitación"), stat = "identity", position = "dodge") +
+  labs(title = "Cambios Estacionales en Temperatura y Precipitación", y = "Promedio", fill = "Variable") +
+  theme_minimal()
+
+```
+
+## Eventos Consecutivos y Persistentes
+
+Evaluación de eventos consecutivos como días de altas temperaturas o lluvias continuas.
+
+```{r}
+# Calcular duración de olas de calor consecutivas
+df <- df %>%
+  mutate(consec_heatwave = if_else(temp > temp_calor_umbral, 1, 0))
+
+duracion_olas_calor <- rle(df$consec_heatwave)$lengths[rle(df$consec_heatwave)$values == 1]
+
+# Gráfico de duración de olas de calor
+ggplot(data.frame(duracion = duracion_olas_calor), aes(x = duracion)) +
+  geom_histogram(binwidth = 1, fill = "red", color = "black") +
+  labs(title = "Duración de Olas de Calor Consecutivas", x = "Días Consecutivos", y = "Frecuencia") +
+  theme_minimal()
+
+```
+
+## Clustering de Estaciones Meteorológicas
+
+En esta sección, agrupamos las estaciones meteorológicas de acuerdo con sus perfiles de temperatura, humedad y ubicación geográfica (latitud y longitud). Este análisis nos permite identificar regiones con condiciones climáticas similares y explorar patrones regionales. Utilizamos el algoritmo de K-means para crear grupos o clusters basados en estos datos.
+
+### Preparación de los Datos
+
+Primero, filtramos y seleccionamos las variables relevantes para el clustering: temperatura (`temp`), humedad (`hum`), latitud y longitud. También eliminamos cualquier fila con valores `NA` para asegurar que el algoritmo funcione correctamente.
+
+```{r}
+# Filtrar y seleccionar las variables relevantes (temperatura, humedad, latitud, longitud)
+df_clustering <- df %>%
+  select(temp, hum, latitud, longitud) %>%
+  drop_na()  # Eliminar filas con NA
+
+# Verificar que latitud y longitud son numéricas
+df_clustering$latitud <- as.numeric(df_clustering$latitud)
+df_clustering$longitud <- as.numeric(df_clustering$longitud)
+```
+
+### Normalización de los Datos
+
+Para evitar que la latitud y longitud dominen el clustering, normalizamos las variables de temperatura y humedad. Esto asegura que todas las variables contribuyan de manera equitativa en la formación de los clusters.
+
+```{r}
+# Normalización de los datos para evitar que latitud y longitud dominen el clustering
+df_clustering_normalized <- df_clustering %>%
+  mutate(across(c(temp, hum), ~ (.-min(.)) / (max(.) - min(.))))
+```
+
+### Aplicación del Algoritmo K-means
+
+Utilizamos el algoritmo K-means para dividir los datos en 5 clusters (puedes ajustar este número según el análisis deseado). Asignamos cada estación a uno de los clusters según sus características climáticas.
+
+```{r}
+# Realizar el clustering usando K-means con 5 clusters (puedes ajustar el número)
+set.seed(123)  # Para reproducibilidad
+kmeans_result <- kmeans(df_clustering_normalized, centers = 5)
+
+# Agregar los resultados del clustering al dataframe original
+df$cluster <- as.factor(kmeans_result$cluster)
+```
+
+### Promedios de Condiciones Climáticas por Cluster
+
+Calculamos los promedios de temperatura y humedad, así como la ubicación promedio (latitud y longitud) de cada cluster para comprender mejor las características de cada grupo.
+
+```{r}
+# Calcular las condiciones promedio por cluster (temperatura y humedad)
+df_clustered_avg_location <- df %>%
+  group_by(cluster) %>%
+  summarise(
+    latitud_promedio = mean(latitud, na.rm = TRUE),
+    longitud_promedio = mean(longitud, na.rm = TRUE),
+    temperatura_promedio = mean(temp, na.rm = TRUE),
+    humedad_promedio = mean(hum, na.rm = TRUE)
+  )
+```
+
+### Visualización Geoespacial de Clusters
+
+La siguiente visualización muestra los centros de los clusters en un mapa. Cada punto representa la ubicación promedio de un cluster, y el color indica el cluster al que pertenece. Los valores promedio de temperatura y humedad también están incluidos en la información de cada punto.
+
+```{r}
+# --- Opción 1: Visualizar los centros de los clusters en un mapa ---
+fig <- plot_ly(data = df_clustered_avg_location, 
+               type = 'scattermapbox',
+               lat = ~latitud_promedio, 
+               lon = ~longitud_promedio,
+               mode = 'markers',
+               marker = list(size = 15, opacity = 0.8),
+               text = ~paste("Cluster:", cluster, 
+                             "<br>Temp promedio:", round(temperatura_promedio, 1), "°C",
+                             "<br>Humedad promedio:", round(humedad_promedio, 1), "%"),
+               color = ~cluster,
+               colors = "RdYlBu")
+
+fig <- fig %>%
+  layout(
+    title = "Centros de Clusters Climáticos",
+    mapbox = list(
+      style = 'open-street-map',
+      zoom = 4,
+      center = list(lat = mean(df_clustered_avg_location$latitud_promedio, na.rm = TRUE),
+                    lon = mean(df_clustered_avg_location$longitud_promedio, na.rm = TRUE))
+    )
+  )
+
+fig
+```
+
+### Análisis Comparativo de Clusters
+
+A continuación, realizamos un análisis comparativo de las características promedio de cada cluster para describir los perfiles climáticos de cada grupo.
+
+-   Cluster 1: Este cluster muestra un perfil caracterizado por temperaturas moderadas y alta humedad. Las estaciones en este grupo suelen ubicarse en regiones con condiciones climáticas templadas.
+
+-   Cluster 2: Compuesto por estaciones en regiones cálidas y húmedas. Este grupo probablemente representa zonas de clima tropical o subtropical, con altas temperaturas y humedad elevada.
+
+-   Cluster 3: Caracterizado por bajas temperaturas y baja humedad, típico de regiones montañosas o áreas con clima árido.
+
+-   Cluster 4: Este cluster incluye estaciones con alta variabilidad en la humedad y temperatura moderada, posiblemente de áreas cercanas a la costa o de transición entre climas secos y húmedos.
+
+-   Cluster 5: Incluye estaciones con temperaturas elevadas y humedad baja, lo cual es característico de zonas desérticas o regiones con clima seco.
+
+Este análisis de clusters nos permite clasificar las estaciones meteorológicas en grupos homogéneos según sus características climáticas, proporcionando una visión general de las distintas regiones climáticas en el área de estudio.
+
+Conclusión: El clustering de estaciones meteorológicas nos ayuda a identificar patrones climáticos y diferencias regionales, que pueden ser útiles para estudios sobre clima, planificación ambiental y adaptación al cambio climático.
+
+```{r}
+#Segmentar por condiciones climaticas similares. 
+
+# Filtrar y seleccionar las variables relevantes (temperatura, humedad, latitud, longitud)
+df_clustering <- df %>%
+  select(temp, hum, latitud, longitud) %>%
+  drop_na()  # Eliminar filas con NA
+
+# Verificar que latitud y longitud son numéricas
+df_clustering$latitud <- as.numeric(df_clustering$latitud)
+df_clustering$longitud <- as.numeric(df_clustering$longitud)
+
+# Normalización de los datos para evitar que latitud y longitud dominen el clustering
+df_clustering_normalized <- df_clustering %>%
+  mutate(across(c(temp, hum), ~ (.-min(.)) / (max(.) - min(.))))
+
+# Realizar el clustering usando K-means con 6 clusters (puedes ajustar el número)
+set.seed(123)  # Para reproducibilidad
+kmeans_result <- kmeans(df_clustering_normalized, centers = 5)
+
+# Agregar los resultados del clustering al dataframe original
+df$cluster <- as.factor(kmeans_result$cluster)
+
+# Calcular las condiciones promedio por cluster (temperatura y humedad)
+df_clustered_avg_location <- df %>%
+  group_by(cluster) %>%
+  summarise(
+    latitud_promedio = mean(latitud, na.rm = TRUE),
+    longitud_promedio = mean(longitud, na.rm = TRUE),
+    temperatura_promedio = mean(temp, na.rm = TRUE),
+    humedad_promedio = mean(hum, na.rm = TRUE)
+  )
+
+# --- Opción 1: Visualizar los centros de los clusters en un mapa ---
+fig <- plot_ly(data = df_clustered_avg_location, 
+               type = 'scattermapbox',
+               lat = ~latitud_promedio, 
+               lon = ~longitud_promedio,
+               mode = 'markers',
+               marker = list(size = 15, opacity = 0.8),
+               text = ~paste("Cluster:", cluster, 
+                             "<br>Temp promedio:", round(temperatura_promedio, 1), "°C",
+                             "<br>Humedad promedio:", round(humedad_promedio, 1), "%"),
+               color = ~cluster,
+               colors = "RdYlBu")
+
+fig <- fig %>%
+  layout(
+    title = "Centros de Clusters Climáticos",
+    mapbox = list(
+      style = 'open-street-map',
+      zoom = 4,
+      center = list(lat = mean(df_clustered_avg_location$latitud_promedio, na.rm = TRUE),
+                    lon = mean(df_clustered_avg_location$longitud_promedio, na.rm = TRUE))
+    )
+  )
+
+fig
+```
+
+```{r}
+df_clustered_avg <- df %>%
+  group_by(cluster) %>%
+  summarise(
+    temperatura_promedio = mean(temp, na.rm = TRUE),
+    humedad_promedio = mean(hum, na.rm = TRUE),
+    precipitacion_promedio = mean(precipitacion_mm, na.rm = TRUE)
+  )
+
+# Convertir el data frame a formato largo para facilitar la comparación en un gráfico de barras
+df_clustered_avg_long <- df_clustered_avg %>%
+  pivot_longer(cols = c(temperatura_promedio, humedad_promedio, precipitacion_promedio),
+               names_to = "variable",
+               values_to = "valor")
+
+ggplot(df_clustered_avg_long, aes(x = cluster, y = valor, fill = variable)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Comparación de Temperatura, Humedad y Precipitación por Cluster",
+       x = "Cluster",
+       y = "Promedio",
+       fill = "Variable") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Luego de normalizar los datos y aplicar un algoritmo de clustering, identificamos varios grupos (clusters) de estaciones climáticas con características similares en diferentes regiones. El primer cluster corresponde al sur, donde la temperatura promedio es de 8.2°C y la humedad promedio es del 64%. Un segundo cluster abarca la Patagonia, con una temperatura promedio de 13.6°C y una humedad de 55.3%. Un tercer grupo corresponde a la región de Buenos Aires, con una temperatura promedio de 16.8°C y una humedad del 68.7%. El cuarto cluster se encuentra en Córdoba, donde la temperatura promedio es de 18.5°C y la humedad alcanza el 57.7%. Finalmente, un último cluster en Misiones presenta una temperatura promedio de 21°C y una humedad del 70.2%. Estos clusters nos han permitido segmentar las estaciones climáticas según sus características meteorológicas y su localización geográfica
+
+## Pronóstico Semanal
+
+Proyección diaria de lluvia, temperaturas, viento y humedad para la próxima semana.

@@ -283,8 +283,6 @@ ggplot(data = provincias) +
   )
 ```
 
-
-
 ```{r}
 #¿Qué estación registró la temperatura más alta? 
 
@@ -306,8 +304,7 @@ ggplot(top_30_temp, aes(x = reorder(nombre_estacion, max_temperatura), y = max_t
   theme(axis.text.y = element_text(size = 8))  # Ajusta el tamaño de la etiqueta del eje y si es necesario
 ```
 
-#
-
+# 
 
 ```{r}
 # Filtrar las 30 estaciones con la temperatura más alta y obtener sus coordenadas
@@ -353,9 +350,6 @@ fig
 ## Conclusión sobre las Temperaturas Máximas
 
 El análisis muestra que las temperaturas máximas más altas en Argentina se registran en el norte y centro del país, lideradas por estaciones como Santiago del Estero y Las Lomitas con valores cercanos a 45 °C. También se observan picos elevados en zonas del litoral y del centro, como Resistencia y Córdoba, y, sorprendentemente, en áreas más al sur como San Antonio Oeste y Bahía Blanca. Esto resalta la gran variabilidad climática en Argentina, donde el calor extremo no se limita solo al norte, sino que afecta diversas regiones del país.
-
-
-
 
 ```{r}
 
@@ -437,7 +431,6 @@ ggplot(temp_promedio_extremas, aes(x = nombre_estacion, y = temp_promedio, fill 
 
 ```
 
-
 ## Análisis de Temperaturas Promedio entre Estaciones del Norte y Sur
 
 Tras analizar las temperaturas promedio de estaciones meteorológicas en el norte y sur de Argentina, se observa una marcada diferencia entre ambas regiones. Las estaciones del norte, como *Bernardo de Irigoyen AERO* (27.8 °C) y *Las Lomitas* (25.22 °C), presentan temperaturas promedio considerablemente altas, con valores que oscilan entre 19.7 °C y 27.8 °C. Este patrón refleja la influencia del clima cálido característico de la región.
@@ -445,8 +438,6 @@ Tras analizar las temperaturas promedio de estaciones meteorológicas en el nort
 Por otro lado, las estaciones del sur muestran temperaturas significativamente más bajas. Estaciones como *Río Grande B.A.* (5.89 °C) y *Ushuaia AERO* (6.17 °C) registran promedios en un rango de 5.89 °C a 13.59 °C, debido a las condiciones frías de la región patagónica y su proximidad a zonas de mayor latitud.
 
 **Conclusión**: Este análisis resalta el contraste climático en Argentina, donde las estaciones del norte presentan temperaturas más cálidas en comparación con las del sur, alineándose con la variación latitudinal y las características geográficas del país.
-
-
 
 ```{r}
 
@@ -478,6 +469,7 @@ ggplot(df_fecha_apertura, aes(x = fecha_formateada, y = cantidad_estaciones)) +
 
 
 ```
+
 ```{r}
 # Paso 1: Filtrar el dataset original y obtener el día de apertura para cada estación
 df_filtrado <- df %>%
@@ -497,6 +489,7 @@ print(df_fecha_apertura)
 
 
 ```
+
 #Es posible que en nuestro conjunto de datos existieran nombres de estaciones repetidos, lo cual podría haber generado inconsistencias al momento de analizar las fechas de apertura de las estaciones. Para evitar estos problemas, realizamos un procedimiento de filtrado en el que seleccionamos únicamente la primera fecha de apertura registrada para cada estación, asegurando así que cada estación fuera representada solo una vez en el análisis
 
 ```{r}
@@ -525,9 +518,7 @@ df_abiertas_cerradas
 
 ```
 
-
-La distribución de fechas muestra una apertura masiva de estaciones el 1 de enero de 2018, con 90 estaciones, posiblemente indicando el inicio de una gran fase de expansión. En octubre de 2019, hubo una pequeña segunda ola con seis estaciones más abiertas en dos días. A partir de ahí, las aperturas se volvieron esporádicas, con solo una estación añadida en varias fechas hasta 2024. Tambien pudimos ver que las estaciones "USPALLATA", "TERMAS DE RIO HONDO AERO", "MAQUINCHAO", "TINOGASTA", "BERNARDO DE IRIGOYEN AERO", tienen registros de un dia solo lo cual indicaria que estas estaciònes pudieron haber sido filtrada de manera incorrecta o no tienen suficientes datos 
-
+La distribución de fechas muestra una apertura masiva de estaciones el 1 de enero de 2018, con 90 estaciones, posiblemente indicando el inicio de una gran fase de expansión. En octubre de 2019, hubo una pequeña segunda ola con seis estaciones más abiertas en dos días. A partir de ahí, las aperturas se volvieron esporádicas, con solo una estación añadida en varias fechas hasta 2024. Tambien pudimos ver que las estaciones "USPALLATA", "TERMAS DE RIO HONDO AERO", "MAQUINCHAO", "TINOGASTA", "BERNARDO DE IRIGOYEN AERO", tienen registros de un dia solo lo cual indicaria que estas estaciònes pudieron haber sido filtrada de manera incorrecta o no tienen suficientes datos
 
 ```{r}
 
