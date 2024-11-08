@@ -224,7 +224,7 @@ df_prov <- df %>%
     #   y = "Humedad Promedio (%)") +
   #theme_minimal()
 ggplot(df_prov, aes(x = año, y = humedad_promedio_anual)) +
-  geom_line(color = "blue") +
+  geom_line(color = "blue", size = 1) +
   facet_wrap(~ provincia, ncol = 4) +
   labs(
     title = "Humedad Promedio Anual por Provincia",
@@ -242,12 +242,12 @@ ggplot(df_prov, aes(x = año, y = humedad_promedio_anual)) +
 
 ```{r}
 ggplot(df_prov, aes(x = año, y = temp_promedio_anual)) +
-  geom_line(color = "blue") +
+  geom_line(color = "blue", size = 1) +
   facet_wrap(~ provincia, ncol = 4) +
   labs(
     title = "Temperatura Promedio Anual por Provincia",
     x = "Año",
-    y = "Precipitaciones Promedio"
+    y = "Temperatura Promedio"
   ) +
   theme_minimal() +
   theme(
@@ -258,22 +258,12 @@ ggplot(df_prov, aes(x = año, y = temp_promedio_anual)) +
 
 ```{r}
 ggplot(df_prov, aes(x = año, y = precipitaciones_promedio_anual)) +
-  geom_line(color = "blue") +
+  geom_line(color = "blue", size = 1) +
   facet_wrap(~ provincia, ncol = 4) +
   labs(title = "Precipitaciones Promedio Anual por Provincia",
        x = "Año",
        y = "Precipitaciones Promedio") +
-  theme_minimal()
-#  theme(axis.title.y = element_text(angle = 45, hjust = 1))
-ggplot(df_prov, aes(x = año, y = precipitaciones_promedio_anual)) +
-  geom_line(color = "blue", size = 1) +  # Línea más gruesa
-  facet_wrap(~ provincia, ncol = 4, scales = "free_y") +  # Escalas independientes para el eje y
-  labs(
-    title = "Precipitaciones Promedio Anual por Provincia",
-    x = "Año",
-    y = "Precipitaciones Promedio (mm)"
-  ) +
-  theme_minimal() +
+  theme_minimal()+
   theme(
     plot.title = element_text(hjust = 0.5, size = 16),  # Centra el título
     axis.text.x = element_text(angle = 45, hjust = 1)   # Gira etiquetas del eje x para mayor legibilidad
@@ -340,19 +330,18 @@ ggplot(df_estacional, aes(x = provincia, y = precipitaciones_promedio, fill = es
 ```{r}
 df_max_prec <- df %>%
   select(nombre_estacion, provincia, precipitacion, fecha) %>%
-  arrange(desc(precipitacion))
-head(df_max_prec)
+  arrange(desc(precipitacion)) %>%
+  head(10)
 df_max_temp <- df %>%
   select(nombre_estacion, provincia, temperatura, fecha) %>%
-  arrange(desc(temperatura))
-head(df_max_temp)
+  arrange(desc(temperatura))%>%
+  head(10)
+
 df_max_hum <- df %>%
   select(nombre_estacion, provincia, humedad, fecha) %>%
-  arrange(desc(humedad))
-head(df_max_hum)
+  arrange(desc(humedad))%>%
+  head(10)
 ```
-
-Conclusiones:
 
 ```{r}
 # Años de eventos (deberías actualizar estas listas con información confiable)
@@ -375,7 +364,6 @@ promedios_evento <- datos_eventos %>%
   summarize(
     temperatura_promedio = mean(temperatura, na.rm = TRUE),
     humedad_promedio = mean(humedad, na.rm = TRUE),
-    presion_promedio = mean(presion_atmosferica, na.rm = TRUE),
     velocidad_viento_promedio = mean(velocidad_viento, na.rm = TRUE),
     precipitacion_promedio = mean(precipitacion, na.rm = TRUE)
   )
@@ -394,12 +382,35 @@ ggplot(promedios_evento, aes(x = provincia, y = temperatura_promedio, fill = tip
 
 ```
 
+```{r}
+ggplot(promedios_evento, aes(x = provincia, y = precipitacion_promedio, fill = tipo_evento)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Precipitaciones Promedio por Provincia durante El Niño, La Niña y Años Neutros",
+       x = "Provincia",
+       y = "Precipitaciones Promedio") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+
+ggplot(promedios_evento, aes(x = provincia, y = humedad_promedio, fill = tipo_evento)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Humedad Promedio por Provincia durante El Niño, La Niña y Años Neutros",
+       x = "Provincia",
+       y = "Humedad Promedio") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
 ### Conclusiones:
 
-El evento de la niña y el niño basandonos en los datos no tuvo un impacto significativo observable en estos.
+El evento de la niña y el niño basandonos en las variables y sus valores dados en el dataset, para la temperatura no hay un patron que siga pero para la humedad y precipitaciones si que hay un pequeño patron el cual es que en los años de la niña la humedad y las precipitaciones, bajan con respecto a los años del niño y los neutros.
 
-Por otro lado, tambien podemos observar que la estacion impacta significativamente en las mediciones que tenemos en los datos .
+Por otro lado, tambien podemos observar que la estacion impacta significativamente en las mediciones que tenemos en los datos . Por ejemplo en verano suele haber mas precipitaciones que en las demas estaciones, y para la humedad suele haber un poco mas en otoño que en las otras.
 
-Y los promedios anuales de las variables temperatura, precipitaciones y humedad se puede ver que la temperatura hay varia mucho menos a lo largo de los años
+Y en los promedios anuales de las variables temperatura, precipitaciones y humedad se puede ver que no existe una gran variacion entre los años para ninguna de las variables aunque hay exepciones como en Chaco para las precipitaciones.
 
-Y las provincias donde se registraron los valores mas altos para las variables mencionadas anteriormente son: para la temperatura santiago del estero y formosa, para la humedad en todas las provincias se hubo 100% de humedad
+Y las provincias donde se registraron los valores mas altos para las variables mencionadas anteriormente son: para la temperatura santiago del estero y formosa, para la humedad en todas las provincias hubo 100% de humedad.
