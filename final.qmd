@@ -361,31 +361,40 @@ temp_calor_umbral <- 35  # Umbral para ola de calor
 temp_frio_umbral <- 5    # Umbral para ola de frío
 precip_intensa_umbral <- 10  # Umbral para lluvias intensas (mm)
 
-# Definir las fechas de inicio de cada estación
-inicio_verano <- ymd("2024-12-21")
-inicio_otoño <- ymd("2024-03-21")
-inicio_invierno <- ymd("2024-06-21")
-inicio_primavera <- ymd("2024-09-23")
-
-# Agregar las columnas 'mes', 'día' y 'estación' al dataframe
+# Agregar las columnas 'año', 'mes', 'día' y 'estación' al dataframe
 df <- df %>%
   mutate(
-     año = year(fecha),
+    año = year(fecha),
     mes = month(fecha),
     dia = day(fecha),
+    
+    # Calcular las fechas de inicio de cada estación basadas en el año de cada registro
+    inicio_verano = make_date(año, 12, 21),
+    inicio_otoño = make_date(año, 3, 21),
+    inicio_invierno = make_date(año, 6, 21),
+    inicio_primavera = make_date(año, 9, 23),
+    
+    # Determinar la estación en función de las fechas de inicio de cada estación
     estacion = case_when(
       (fecha >= inicio_verano | fecha < inicio_otoño) ~ "Verano",
       (fecha >= inicio_otoño & fecha < inicio_invierno) ~ "Otoño",
       (fecha >= inicio_invierno & fecha < inicio_primavera) ~ "Invierno",
       (fecha >= inicio_primavera & fecha < inicio_verano) ~ "Primavera"
     ),
-     has_rained = if_else(!is.na(precipitacion_mm) & precipitacion_mm > 0, 1, 0),
-     ola_calor = if_else(temp > temp_calor_umbral, 1, 0),
-     ola_frio = if_else(temp < temp_frio_umbral, 1, 0),
-     lluvia_intensa = if_else(precipitacion_mm > precip_intensa_umbral, 1, 0)
-  )
+    
+    # Otras columnas de interés
+    has_rained = if_else(!is.na(precipitacion_mm) & precipitacion_mm > 0, 1, 0),
+    ola_calor = if_else(temp > temp_calor_umbral, 1, 0),
+    ola_frio = if_else(temp < temp_frio_umbral, 1, 0),
+    lluvia_intensa = if_else(precipitacion_mm > precip_intensa_umbral, 1, 0)
+  ) %>%
+  
+  # Eliminar columnas temporales de fechas de inicio
+  select(-inicio_verano, -inicio_otoño, -inicio_invierno, -inicio_primavera)
 
+# Guardar el dataframe limpio
 saveRDS(df, file = "clean_data.rds")
+
 ```
 
 ```{r}
